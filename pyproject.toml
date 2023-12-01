@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "gpt-wrapper"
+version = "0.1.0"
+description = ""
+authors = ["Joong-Won Seo <j.seo@appliedai.de>"]
+readme = "README.md"
+packages = [{include = "gpt_wrapper"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.5.1"
+tiktoken = "^0.5.1"
+jsonref = "^1.1.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

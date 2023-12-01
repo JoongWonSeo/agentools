@@ -1,0 +1,7 @@
+name: gpt
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - poetry
+prefix: /Users/jw/anaconda3/envs/gpt
