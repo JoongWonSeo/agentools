@@ -1,112 +1,211 @@
-from typing import Type
-
+from typing import Type, Optional, Callable
+import inspect
 import json
+from functools import wraps
+
+from docstring_parser import parse
+from pydantic import BaseModel, Field, create_model, ValidationError
 import jsonref
-from pydantic import BaseModel, Field, ValidationError
 
-# Interface for a tool, supports converting into a OpenAI Tool Scheme, validating from JSON, and actually calling from parsed args
-class FunctionTool(BaseModel):
-    '''
-    Whatever you write here will be passed to the OpenAI model as a description of this function tool; you should provide a detailed description of the tool.
-    '''
-#================ MUST OVERRIDE =================#
-    # Define args here, use = Field(description='field description') to provide a description
-    # my_arg1: str = Field(..., description='my_arg1 description')
-    # my_arg2: int = Field(..., description='my_arg2 description')
-
-    # What actually gets called when the model calls this function
-    def __call__(args, state: any = None) -> str:
-        '''
-        All the args you defined above are available here under args (which is just a renamed `self`), in order to ensure no naming conflicts with the state.
-        if you need to access the state (e.g. given by the parent Toolkit class), you can access it via the state parameter, with the type of your choice.
-        '''
-        # return 'success'
-        raise NotImplementedError('You must override this method')
-
-#================ OPTIONAL OVERRIDE =================#
-    @classmethod
-    def openai_name(cls) -> str:
-        '''Name of this function as exposed to the OpenAI Model, override as needed'''
-        return cls.__name__
-    
-#================ FOR Toolkit CLASS =================#
-    @classmethod
-    def to_openai(cls) -> dict:
-        schema = schema_to_openai_func(cls)
-        schema['function']['name'] = cls.openai_name()
-        return schema
-    
-    @classmethod
-    def validate_and_call(cls, args: dict, state: any) -> str:
-        '''Validate the args using pydantic and call the function'''
-        try:
-            # first create an instance, which validates and saves the args
-            _self = cls(**args)
-        except ValidationError as e:
-            return f'Error: Invalid Arguments {e}'
-        # then call the actual function, which can access the args via self and the state via state
-        return _self(state)
+from .api import Function
 
 
-# Toolkit is a group of tools and lets you define shared states
+#================ User-Defined Tools =================#
+
 class Toolkit:
     '''
-    A toolkit is a class you should override for a collection of tools and a lookup table for it. It also defines the shared states between the tools.
+    A base class for a collection of tools and their shared states.
+    Simply inherit this class and mark your methods as tools with the `@function_tool` decorator.
+    After instantiating your toolkit, you can either:
+    - [Code]: Simply use the functions as normal, e.g. `toolkit.my_tool(**args)`
+    - [Model]: Use the `toolkit.lookup` dict to call the function by name, e.g. `toolkit.lookup['my_tool'](args)`
     '''
-    def __init__(self, tools: list[Type[FunctionTool]]):
-        self.tools = tools
-
-        # define your states needed by the tools here
-        self.state = None
-
-    def to_openai(self) -> dict:
-        '''
-        Create a schema for all the tools that you can directly pass to the OpenAI API as tools
-        '''
-        return [tool.to_openai() for tool in self.tools]
-
-    def to_tool_lookup(self) -> dict[str, Type[FunctionTool]]:
-        '''
-        Create a lookup table for tools, which you can lookup by name (str) and call with the same expected keyword arguments as the model would.
-        '''
+    @property
+    def lookup(self) -> dict[str, Callable]:
+        '''dict of TOOL NAME to argument-validated function'''
         return {
-            tool.openai_name(): self._func_with_state(tool)
-            for tool in self.tools
+            tool.name: self._with_self(tool.validate_and_call)
+            for tool in self._function_tools.values()
         }
     
-    def _func_with_state(self, tool: Type[FunctionTool]):
-        '''
-        This lambda is essentially just factored out to prevent late-binding problem of using tool directly in a for loop (which would always use the last tool)
-        '''
-        return lambda **kwargs: tool.validate_and_call(kwargs, self.state)
+    @property
+    def schema(self) -> list[dict]:
+        '''list of OpenAI function schemas'''
+        return [tool.schema for tool in self._function_tools.values()]
     
+    @property
+    def _function_tools(self) -> dict[str, Callable]:
+        '''dict of RAW FUNCTION NAME to function'''
+        return {
+            attr: getattr(self, attr)
+            for attr in dir(type(self))
+            if not isinstance(getattr(type(self), attr), property)
+            and getattr(getattr(self, attr), 'tool_enabled', False)
+        }
+    
+    # util to prevent late-binding of func in a dict comprehension
+    def _with_self(self, func: Callable):
+        '''Make a function which automatically receives self as the first argument'''
+        def wrapper(**kwargs):
+            return func({'self': self, **kwargs})
+        return wrapper
+
+
+
+
+#================ Decorators =================#
+
+def function_tool(function=None, *, name: Optional[str] = None, check_description: bool = True):
+    '''
+    Simple decorator that:
+    - Marks a function as a tool and enables it: `func.tool_enabled = True`
+    - Attaches a lookup dict for OpenAI: `func.lookup = {func.name: func}`
+    - Attaches an OpenAI tool schema: `func.schema = {...}`
+    - Attaches a pydantic argument validator: `func.validator`
+    - Attaches a validate and call function: `func.validate_and_call(args)`
+    - If a name is not specified, use the function name as the tool name
+    '''
+    def decorator(func):
+        def validate_and_call(args: dict) -> str:
+            try:
+                args_without_self = {k: v for k, v in args.items() if k != 'self'}
+                func.validator(**args_without_self)
+            except ValidationError as e:
+                return f'Invalid Argument: {e}'
+            return func(**args)
+        
+        func.name = name or func.__name__
+        func.tool_enabled = True
+        func.validator = function_to_validator(func, name=func.name, check_description=check_description)
+        func.schema = schema_to_openai_func(func.validator)
+        func.validate_and_call = validate_and_call
+        func.lookup = {func.name: func.validate_and_call}
+        return func
+    
+    if function: # user did `@function_tool`, i.e. we were used directly as a decorator
+        return decorator(function)
+    else: # user did `@function_tool()` or `@function_tool(name='foo')`
+        return decorator
+
+
+def fail_with_message(message, include_exception=True, logger: Callable = print):
+    '''A decorator that catches exceptions from synchronous and asynchronous functions and returns the given message instead. Useful for agent tools.'''
+
+    def log_exception(func, args, kwargs, e):
+        if logger:
+            logger(f"Tool call {func.__name__}({', '.join(list(map(repr, args)) + [f'{k}={repr(v)}' for k,v in kwargs.items()])}) failed: {e}")
+        return message + (f': {str(e)}' if include_exception else '')
+
+    def decorator(func):
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    return log_exception(func, args, kwargs, e)
+            return async_wrapper
+        else:
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    return log_exception(func, args, kwargs, e)
+            return sync_wrapper
+    return decorator
+
+
+
+#================ Model =================#
+
+async def call_requested_function(call_request: Function, func_lookup: dict[str, Callable]):
+    '''
+    Call the requested function generated by the model.
+    '''
+    # parse function call
+    func_name = call_request.name
+    arguments = call_request.arguments
+
+    if func_name not in func_lookup:
+        return f"Error: Function {func_name} does not exist."
+    try:
+        args = json.loads(arguments)
+    except Exception as e:    
+        return f"Error: Failed to parse arguments, make sure your arguments is a valid JSON object: {e}"
+
+    # call function
+    try:
+        return_value = func_lookup[func_name](**args)
+        # if it's a coroutine, await it
+        if inspect.iscoroutine(return_value):
+            print("awaiting coroutine")
+            return await return_value
+        else:
+            return return_value
+    except Exception as e:
+        return f"Error: {e}"
 
 
 #================ Utils =================#
 
-# Pydantic -> OpenAI function schema
-def remove_title(d) -> dict | list:
-    if isinstance(d, dict):
-        if 'title' in d and type(d['title']) == str:
-            d.pop('title')
-        for v in d.values():
-            remove_title(v)
-    elif isinstance(d, list):
-        for v in d:
-            remove_title(v)
-    return d
+# Function -> Pydantic model
+def function_to_validator(func: Callable, name: Optional[str] = None, check_description = True) -> type[BaseModel]:
+    '''
+    Convert a function to a pydantic model for validation of function parameters.
 
-def to_nested_schema(model: Type[BaseModel], no_title=True) -> dict:
-    '''nested json schema rather than refs'''
-    schema = jsonref.loads(json.dumps(model.model_json_schema()), proxies=False)
-    if 'definitions' in schema:
-        schema.pop('definitions')
-    if '$defs' in schema:
-        schema.pop('$defs')
-    if no_title:
-        remove_title(schema)
-    return schema
+    Args:
+        func: function to convert
+        name: name of the model, defaults to func.__name__
 
+    Returns:
+        pydantic model
+    '''
+    sig: inspect.Signature = inspect.signature(func)
+    doc = parse(inspect.getdoc(func) or "")
+
+    # get function name
+    name = name or func.__name__
+
+    # get general function description
+    summary = f"{doc.short_description or ''}\n{doc.long_description or ''}".strip()
+
+    # {param_name: param_description}
+    param_descriptions = {
+        doc_param.arg_name: doc_param.description
+        for doc_param in doc.params
+    }
+
+    # convert function parameters to pydantic model fields
+    model_fields = {}
+
+    for param in sig.parameters.values():
+        if param.name in ["self", "return", "return_type"]:
+            continue
+
+        if check_description:
+            assert param.name in param_descriptions, (f"Missing description for parameter {param.name} in {func.__name__}'s docstring!")
+        
+        assert param.annotation != inspect.Parameter.empty, (f"Missing type annotation for parameter {param.name} in {func.__name__}!")
+            
+        model_fields[param.name] = (
+            param.annotation, # type
+            Field(
+                title=None,
+                description=param_descriptions.get(param.name),
+                default=
+                    ...
+                    if param.default is inspect.Parameter.empty
+                    else param.default,
+            ),
+        )
+
+    # create a pydantic model for function argument validation
+    model = create_model(name, __doc__=summary or None, **model_fields)
+    return model
+
+
+# Pydantic/JSON Schema -> OpenAI function schema
 def schema_to_openai_func(schema: dict | Type[BaseModel], nested=True) -> dict:
     if not isinstance(schema, dict) and issubclass(schema, BaseModel):
         if nested:
@@ -121,8 +220,8 @@ def schema_to_openai_func(schema: dict | Type[BaseModel], nested=True) -> dict:
     return {
         'type': 'function',
         "function": {
-            'name': schema.get('title', ''),
-            'description': schema.get('description', ''),
+            'name': schema['title'],
+            **({'description': d} if (d:=schema.get('description')) else {}),
             'parameters': {
                 'type': 'object',
                 'properties': schema['properties'],
@@ -130,3 +229,26 @@ def schema_to_openai_func(schema: dict | Type[BaseModel], nested=True) -> dict:
             }
         }
     }
+
+
+def to_nested_schema(model: Type[BaseModel], no_title=True) -> dict:
+    '''nested json schema rather than refs'''
+    schema = jsonref.loads(json.dumps(model.model_json_schema()), proxies=False)
+    if 'definitions' in schema:
+        schema.pop('definitions')
+    if '$defs' in schema:
+        schema.pop('$defs')
+    if no_title:
+        remove_title(schema)
+    return schema
+
+def remove_title(d) -> dict | list:
+    if isinstance(d, dict):
+        if 'title' in d and type(d['title']) == str:
+            d.pop('title')
+        for v in d.values():
+            remove_title(v)
+    elif isinstance(d, list):
+        for v in d:
+            remove_title(v)
+    return d

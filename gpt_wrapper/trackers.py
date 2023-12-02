@@ -20,12 +20,18 @@ from openai.types.chat.chat_completion_message_tool_call import (
 
 class ChatCompletionUsageTracker:
     MODEL_PRICING = { # in $/1000tokens
-        'gpt-4-1106-preview': {'prompt_tokens': 0.01, 'completion_tokens': 0.03},
-        'gpt-4': {'prompt_tokens': 0.03, 'completion_tokens': 0.06},
-        'gpt-4-32k': {'prompt_tokens': 0.06, 'completion_tokens': 0.12},
-        'gpt-3.5-turbo-1106': {'prompt_tokens': 0.001, 'completion_tokens': 0.002},
-        'gpt-3.5-turbo': {'prompt_tokens': 0.001, 'completion_tokens': 0.002},
-        'gpt-3.5-turbo-0613': {'prompt_tokens': 0.001, 'completion_tokens': 0.002},
+        'gpt-4-1106-preview':
+            {'prompt_tokens': 0.01, 'completion_tokens': 0.03},
+        'gpt-4':
+            {'prompt_tokens': 0.03, 'completion_tokens': 0.06},
+        'gpt-4-32k':
+            {'prompt_tokens': 0.06, 'completion_tokens': 0.12},
+        'gpt-3.5-turbo-1106':
+            {'prompt_tokens': 0.001, 'completion_tokens': 0.002},
+        'gpt-3.5-turbo':
+            {'prompt_tokens': 0.001, 'completion_tokens': 0.002},
+        'gpt-3.5-turbo-0613':
+            {'prompt_tokens': 0.001, 'completion_tokens': 0.002},
     }
 
     def __init__(self):
@@ -35,6 +41,8 @@ class ChatCompletionUsageTracker:
         '''Transparent wrapper to track usage of the completion'''
         model = completion.model
         usage = completion.usage
+        if usage is None:
+            return completion
         if model not in self.usage_per_model:
             self.usage_per_model[model] = CompletionUsage(completion_tokens=0, prompt_tokens=0, total_tokens=0)
 

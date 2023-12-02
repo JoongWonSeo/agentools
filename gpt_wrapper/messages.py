@@ -36,6 +36,10 @@ def msg(*, system=None, user=None, assistant=None, tool=None, tool_call_id=None)
 
 
 class MessageHistory:
+    '''
+    Simple message history that stores messages as a list of dicts.
+    Kind of acts like a list
+    '''
     def __init__(self, messages: list[dict] = [msg(system='You are a helpful assistant')]):
         self._messages = messages
     
@@ -43,7 +47,7 @@ class MessageHistory:
     def history(self):
         return self._messages
     
-    def append(self, message: dict):
+    def append(self, message: dict | ChatCompletionMessage):
         # convert assistant pydantic message to dict
         if isinstance(message, ChatCompletionMessage):
             message = message.model_dump()
