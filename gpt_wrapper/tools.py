@@ -1,7 +1,9 @@
+from abc import ABC, abstractmethod
 from typing import Type, Optional, Callable
 import inspect
 import json
 from functools import wraps
+from itertools import chain
 
 from docstring_parser import parse
 from pydantic import BaseModel, Field, create_model, ValidationError
@@ -12,7 +14,43 @@ from .api import Function
 
 #================ User-Defined Tools =================#
 
-class Toolkit:
+class Tools(ABC):
+    '''A (fake) interface for any tool (function/ToolList/Toolkit) that can be used by the assistant.'''
+    tool_enabled: bool # whether this tool is enabled
+    schema: list[dict] # list of OpenAI function schemas
+    lookup: dict[str, Callable] # dict of tool name to function implementation
+
+
+class ToolList(Tools):
+    '''A simple collection of tools/toolkits'''
+    def __init__(self, *tools: Tools, tool_enabled = True):
+        self.tools = list(tools)
+        self.tool_enabled = tool_enabled
+
+    @property
+    def schema(self) -> list[dict]:
+        '''list of OpenAI function schemas'''
+        if not self.tool_enabled:
+            return []
+        
+        return list(chain(*[t.schema for t in self.tools if t.tool_enabled]))
+
+    @property
+    def lookup(self) -> dict[str, Callable]:
+        '''dict of TOOL NAME to argument-validated function'''
+        if not self.tool_enabled:
+            return {}
+        
+        lookups = [t.lookup for t in self.tools if t.tool_enabled]
+        assert len(set(chain(*[lookup.keys() for lookup in lookups]))) == sum([len(lookup) for lookup in lookups]), "Duplicate tool names detected!"
+        return {
+            k: v
+            for lookup in lookups
+            for k, v in lookup.items()
+        }
+
+
+class Toolkit(Tools):
     '''
     A base class for a collection of tools and their shared states.
     Simply inherit this class and mark your methods as tools with the `@function_tool` decorator.
@@ -20,6 +58,14 @@ class Toolkit:
     - [Code]: Simply use the functions as normal, e.g. `toolkit.my_tool(**args)`
     - [Model]: Use the `toolkit.lookup` dict to call the function by name, e.g. `toolkit.lookup['my_tool'](args)`
     '''
+    def __init__(self):
+        self.tool_enabled = True
+
+    @property
+    def schema(self) -> list[dict]:
+        '''list of OpenAI function schemas'''
+        return list(chain(*[tool.schema for tool in self._function_tools.values()]))
+    
     @property
     def lookup(self) -> dict[str, Callable]:
         '''dict of TOOL NAME to argument-validated function'''
@@ -29,24 +75,19 @@ class Toolkit:
         }
     
     @property
-    def schema(self) -> list[dict]:
-        '''list of OpenAI function schemas'''
-        return [tool.schema for tool in self._function_tools.values()]
-    
-    @property
     def _function_tools(self) -> dict[str, Callable]:
         '''dict of RAW FUNCTION NAME to function'''
         return {
             attr: getattr(self, attr)
             for attr in dir(type(self))
-            if not isinstance(getattr(type(self), attr), property)
+            if not isinstance(getattr(type(self), attr), property) # ignore properties to prevent infinite recursion
             and getattr(getattr(self, attr), 'tool_enabled', False)
-        }
+        } if self.tool_enabled else {}
     
     # util to prevent late-binding of func in a dict comprehension
     def _with_self(self, func: Callable):
         '''Make a function which automatically receives self as the first argument'''
-        def wrapper(**kwargs):
+        def wrapper(kwargs: dict[str, any]):
             return func({'self': self, **kwargs})
         return wrapper
 
@@ -60,7 +101,7 @@ def function_tool(function=None, *, name: Optional[str] = None, check_descriptio
     Simple decorator that:
     - Marks a function as a tool and enables it: `func.tool_enabled = True`
     - Attaches a lookup dict for OpenAI: `func.lookup = {func.name: func}`
-    - Attaches an OpenAI tool schema: `func.schema = {...}`
+    - Attaches a list of OpenAI tool schema: `func.schema = [{...}]`
     - Attaches a pydantic argument validator: `func.validator`
     - Attaches a validate and call function: `func.validate_and_call(args)`
     - If a name is not specified, use the function name as the tool name
@@ -77,7 +118,7 @@ def function_tool(function=None, *, name: Optional[str] = None, check_descriptio
         func.name = name or func.__name__
         func.tool_enabled = True
         func.validator = function_to_validator(func, name=func.name, check_description=check_description)
-        func.schema = schema_to_openai_func(func.validator)
+        func.schema = [schema_to_openai_func(func.validator)]
         func.validate_and_call = validate_and_call
         func.lookup = {func.name: func.validate_and_call}
         return func
@@ -136,7 +177,7 @@ async def call_requested_function(call_request: Function, func_lookup: dict[str,
 
     # call function
     try:
-        return_value = func_lookup[func_name](**args)
+        return_value = func_lookup[func_name](args)
         # if it's a coroutine, await it
         if inspect.iscoroutine(return_value):
             print("awaiting coroutine")

@@ -3,5 +3,6 @@ channels:
   - defaults
 dependencies:
   - python=3.11
-  - poetry
+  - poetry=1.6.1
+  - ipykernel
 prefix: /Users/jw/anaconda3/envs/gpt
