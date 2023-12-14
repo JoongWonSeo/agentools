@@ -13,7 +13,7 @@ from openai.types.chat.chat_completion import (
 )
 
 import openai.types.chat.chat_completion as Normal
-import openai.types.chat.chat_completion_chunk as Stream
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall as ToolCall,
     Function
@@ -35,7 +35,7 @@ async def openai_chat(**openai_kwargs):
     return await client.chat.completions.create(**openai_kwargs)
 
 
-async def accumulate_partial(stream: AsyncStream[Stream.ChatCompletionChunk], track_usage=False) -> AsyncIterator[tuple[Stream.ChatCompletionChunk, Normal.ChatCompletion]]:
+async def accumulate_partial(stream: AsyncStream[ChatCompletionChunk], track_usage=False) -> AsyncIterator[tuple[ChatCompletionChunk, Normal.ChatCompletion]]:
     '''
     Adapter that accumulates a stream of deltas into a stream of partial messages,
     e.g. "I", "love", "sushi" -> "I", "I love", "I love sushi"

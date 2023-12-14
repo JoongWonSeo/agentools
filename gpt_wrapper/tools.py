@@ -122,7 +122,7 @@ def function_tool(function=None, *, name: Optional[str] = None, check_descriptio
         func.schema = [schema_to_openai_func(func.validator)]
         func.validate_and_call = validate_and_call
         func.lookup = {func.name: func.validate_and_call}
-        func.validate_and_call.in_thread = not inspect.iscoroutinefunction(func) if in_thread is None else in_thread
+        func.validate_and_call.in_thread = not asyncio.iscoroutinefunction(func) if in_thread is None else in_thread
         return func
     
     if function: # user did `@function_tool`, i.e. we were used directly as a decorator
@@ -140,7 +140,7 @@ def fail_with_message(message, include_exception=True, logger: Callable = print)
         return message + (f': {str(e)}' if include_exception else '')
 
     def decorator(func):
-        if inspect.iscoroutinefunction(func):
+        if asyncio.iscoroutinefunction(func):
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
                 try:
@@ -180,7 +180,7 @@ async def call_requested_function(call_request: Function, func_lookup: dict[str,
     # call function
     try:
         f = func_lookup[func_name]
-        if not getattr(f, 'in_thread', True) or inspect.iscoroutinefunction(f):
+        if not getattr(f, 'in_thread', True) or asyncio.iscoroutinefunction(f):
             print("awaiting coroutine")
             return await f(args)
         else:
