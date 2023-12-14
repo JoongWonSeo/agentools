@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Type, Optional, Callable
 import inspect
 import json
+import asyncio
 from functools import wraps
 from itertools import chain
 
@@ -96,7 +97,7 @@ class Toolkit(Tools):
 
 #================ Decorators =================#
 
-def function_tool(function=None, *, name: Optional[str] = None, check_description: bool = True):
+def function_tool(function=None, *, name: Optional[str] = None, check_description: bool = True, in_thread: Optional[bool] = None):
     '''
     Simple decorator that:
     - Marks a function as a tool and enables it: `func.tool_enabled = True`
@@ -121,6 +122,7 @@ def function_tool(function=None, *, name: Optional[str] = None, check_descriptio
         func.schema = [schema_to_openai_func(func.validator)]
         func.validate_and_call = validate_and_call
         func.lookup = {func.name: func.validate_and_call}
+        func.validate_and_call.in_thread = not inspect.iscoroutinefunction(func) if in_thread is None else in_thread
         return func
     
     if function: # user did `@function_tool`, i.e. we were used directly as a decorator
@@ -177,13 +179,13 @@ async def call_requested_function(call_request: Function, func_lookup: dict[str,
 
     # call function
     try:
-        return_value = func_lookup[func_name](args)
-        # if it's a coroutine, await it
-        if inspect.iscoroutine(return_value):
+        f = func_lookup[func_name]
+        if not getattr(f, 'in_thread', True) or inspect.iscoroutinefunction(f):
             print("awaiting coroutine")
-            return await return_value
+            return await f(args)
         else:
-            return return_value
+            print("awaiting thread")
+            return await asyncio.to_thread(f, args)
     except Exception as e:
         return f"Error: {e}"
 

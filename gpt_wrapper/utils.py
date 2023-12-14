@@ -1,4 +1,5 @@
 import time
+import asyncio
 
 import tiktoken
 
@@ -31,3 +32,7 @@ def mock_response(message: str):
             model='mock',
             object='chat.completion',
         )
+
+async def atuple(*vals):
+    '''A generalized "tuple" wrapper which will await any coroutine values and simply pass normal values through'''
+    return tuple([await v if asyncio.iscoroutine(v) else v for v in vals])
