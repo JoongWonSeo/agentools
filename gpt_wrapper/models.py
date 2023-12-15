@@ -201,8 +201,6 @@ class ChatGPT(Assistant):
         async for chunk, partial in accumulate_partial(completion_stream):
             yield self.PartialCompletionEvent(chunk, partial, call_index)
 
-
-
         # The "partial" completion should be fully complete by now
         yield self.CompletionEvent(completion=partial, call_index=call_index)
     
