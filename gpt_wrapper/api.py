@@ -22,10 +22,6 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from .utils import mock_response
 
 
-# global client
-client = AsyncOpenAI()
-
-
 async def openai_chat(**openai_kwargs):
     '''
     Thin wrapper around openai with mocking and potential for other features/backend
@@ -35,6 +31,8 @@ async def openai_chat(**openai_kwargs):
         return mock_response("Hello, world!")
     elif openai_kwargs['model'] == 'echo':
         return mock_response(openai_kwargs['messages'][-1]['content'])
+    # new client for each call (TODO: is this efficient?)
+    client = AsyncOpenAI()
     return await client.chat.completions.create(**openai_kwargs)
 
 
