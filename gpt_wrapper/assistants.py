@@ -27,13 +27,18 @@ class Assistant(ABC):
     #================ Full Response Events =================#
     @dataclass
     class ResponseStartEvent(Event):
-        '''Assistant was called with the following args'''
+        '''Assistant was prompted with the following args'''
         prompt: str
         tools: Optional[Tools]
         model: str
         max_function_calls: int
         openai_kwargs: dict
     
+    @dataclass
+    class CompletionStartEvent(Event):
+        '''Start of a new message completion'''
+        call_index: int = 0
+
     @dataclass
     class CompletionEvent(Event):
         '''Final response from the API call to the model'''
@@ -65,7 +70,7 @@ class Assistant(ABC):
 
     @dataclass
     class ResponseEndEvent(Event):
-        '''Response is complete'''
+        '''Prompt response is complete with the following final content'''
         content: str
 
     #================ Partial Response (Streaming) Events =================#
@@ -150,6 +155,8 @@ class ChatGPT(Assistant):
 
         # prompt the assistant and let it use the tools
         for call_index in range(max_function_calls):
+            yield self.CompletionStartEvent(call_index)
+
             # call the underlying API and handle the events
             completion_events = self.completion_events(
                 call_index,
