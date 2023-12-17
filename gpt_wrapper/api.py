@@ -68,6 +68,7 @@ async def accumulate_partial(stream: AsyncStream[ChatCompletionChunk], track_usa
                         Normal.Choice(
                             finish_reason='length', # NOTE: this is a fallback
                             index=i,
+                            logprobs=None,
                             message=Normal.ChatCompletionMessage(role='assistant', content=None)
                         )
                         for i in range(len(completion.choices), delta_choice.index + 1)
