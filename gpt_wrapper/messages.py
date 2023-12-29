@@ -48,13 +48,17 @@ class MessageHistory:
         return self._messages
     
     def append(self, message: dict | ChatCompletionMessage):
-        # convert assistant pydantic message to dict
+        message = self.ensure_dict(message)
+        self._messages.append(message)
+    
+    @staticmethod
+    def ensure_dict(message: dict | ChatCompletionMessage):
+        '''Convert assistant pydantic message to dict'''
         if isinstance(message, ChatCompletionMessage):
             message = message.model_dump()
             # remove any None values (tool calls)
             message = {k: v for k, v in message.items() if v is not None}
-
-        self._messages.append(message)
+        return message
     
 
 # # example of extended features, simply override
