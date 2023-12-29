@@ -43,7 +43,7 @@ class MessageHistory(ABC):
         ...
     
     @abstractmethod
-    def append(self, message: dict | ChatCompletionMessage):
+    async def append(self, message: dict | ChatCompletionMessage):
         '''Add a message to the history'''
         ...
     
@@ -69,7 +69,7 @@ class SimpleHistory(MessageHistory):
     def history(self):
         return self._messages
     
-    def append(self, message: dict | ChatCompletionMessage):
+    async def append(self, message: dict | ChatCompletionMessage):
         message = self.ensure_dict(message)
         self._messages.append(message)
     

@@ -151,7 +151,7 @@ class ChatGPT(Assistant):
         tools = tools or self.default_tools
 
         yield self.ResponseStartEvent(prompt, tools, model, max_function_calls, openai_kwargs)
-        self.messages.append(msg(user=prompt))
+        await self.messages.append(msg(user=prompt))
 
         # prompt the assistant and let it use the tools
         for call_index in range(max_function_calls):
@@ -176,7 +176,7 @@ class ChatGPT(Assistant):
 
             # select the message if there are multiple choices
             message = completion.choices[0].message
-            self.messages.append(message)
+            await self.messages.append(message)
             yield self.FullMessageEvent(message, choice_index=0)
 
             if message.content is not None:
@@ -229,5 +229,5 @@ class ChatGPT(Assistant):
             i, call, result = await completed
             # stringify the result
             result = str(result)
-            self.messages.append(msg(tool=result, tool_call_id=call.id))
+            await self.messages.append(msg(tool=result, tool_call_id=call.id))
             yield self.ToolResultEvent(result, call, i)
