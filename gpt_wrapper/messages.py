@@ -1,4 +1,5 @@
 from typing import overload
+from abc import ABC, abstractmethod
 
 # API return values
 from openai.types.chat import (
@@ -34,8 +35,29 @@ def msg(*, system=None, user=None, assistant=None, tool=None, tool_call_id=None)
     elif tool is not None:
         return {'role': 'tool', 'content': tool, 'tool_call_id': tool_call_id}
 
+class MessageHistory(ABC):
+    @property
+    @abstractmethod
+    def history(self) -> list[dict]:
+        '''The message history'''
+        ...
+    
+    @abstractmethod
+    def append(self, message: dict | ChatCompletionMessage):
+        '''Add a message to the history'''
+        ...
+    
+    @staticmethod
+    def ensure_dict(message: dict | ChatCompletionMessage):
+        '''Convert assistant pydantic message to dict'''
+        if isinstance(message, ChatCompletionMessage):
+            message = message.model_dump()
+            # remove any None values (tool calls)
+            message = {k: v for k, v in message.items() if v is not None}
+        return message
 
-class MessageHistory:
+
+class SimpleHistory(MessageHistory):
     '''
     Simple message history that stores messages as a list of dicts.
     Kind of acts like a list
@@ -50,15 +72,6 @@ class MessageHistory:
     def append(self, message: dict | ChatCompletionMessage):
         message = self.ensure_dict(message)
         self._messages.append(message)
-    
-    @staticmethod
-    def ensure_dict(message: dict | ChatCompletionMessage):
-        '''Convert assistant pydantic message to dict'''
-        if isinstance(message, ChatCompletionMessage):
-            message = message.model_dump()
-            # remove any None values (tool calls)
-            message = {k: v for k, v in message.items() if v is not None}
-        return message
     
 
 # # example of extended features, simply override
