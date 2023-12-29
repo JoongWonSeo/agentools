@@ -36,11 +36,8 @@ def msg(*, system=None, user=None, assistant=None, tool=None, tool_call_id=None)
         return {'role': 'tool', 'content': tool, 'tool_call_id': tool_call_id}
 
 class MessageHistory(ABC):
-    @property
-    @abstractmethod
-    def history(self) -> list[dict]:
-        '''The message history'''
-        ...
+    # history of already completed messages
+    history: list[dict]
     
     @abstractmethod
     async def append(self, message: dict | ChatCompletionMessage):
