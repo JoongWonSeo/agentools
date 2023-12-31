@@ -7,7 +7,7 @@ from functools import wraps
 from itertools import chain
 
 from docstring_parser import parse
-from pydantic import BaseModel, Field, create_model, ValidationError
+from pydantic import BaseModel, Field, create_model, ValidationError as PydanticValError
 from jsonschema import Draft202012Validator
 import jsonref
 
@@ -127,8 +127,8 @@ def function_tool(function=None, *, name: Optional[str] = None, require_doc: boo
             func.schema = [schema_to_openai_func(json_schema)]
         else:
             # parse the docstring and create a pydantic model as validator
-            func.validator = validator_from_doc(func, name=func.name, require_doc=require_doc)
-            func.schema = [schema_to_openai_func(func.validator)]
+            model, func.validator = validator_from_doc(func, name=func.name, require_doc=require_doc)
+            func.schema = [schema_to_openai_func(model)]
 
         func.validate_and_call = validate_and_call
         func.lookup = {func.name: func.validate_and_call}
@@ -202,6 +202,9 @@ async def call_requested_function(call_request: Function, func_lookup: dict[str,
 
 #================ Utils =================#
 
+class ValidationError(BaseException):
+    pass
+
 # Function -> Pydantic model
 def validator_from_doc(func: Callable, name: Optional[str] = None, require_doc = True) -> type[BaseModel]:
     '''
@@ -255,7 +258,16 @@ def validator_from_doc(func: Callable, name: Optional[str] = None, require_doc =
 
     # create a pydantic model for function argument validation
     model = create_model(name, __doc__=summary or None, **model_fields)
-    return model
+
+    # validator function
+    def validate_pydantic(**state):
+        try:
+            model(**state)
+        except PydanticValError as e:
+            err = "\n".join([l for l in str(e).splitlines() if "further information" not in l.lower()])
+            raise ValidationError(err)
+        
+    return model, validate_pydantic
 
 
 # JSON Schema -> JSON Validator that raises ValidatonError just like Pydantic Model
