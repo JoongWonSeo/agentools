@@ -88,6 +88,7 @@ class Toolkit(Tools):
     # util to prevent late-binding of func in a dict comprehension
     def _with_self(self, func: Callable):
         '''Make a function which automatically receives self as the first argument'''
+        @wraps(func)
         def wrapper(kwargs: dict[str, any]):
             return func({'self': self, **kwargs})
         return wrapper
