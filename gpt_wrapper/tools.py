@@ -180,7 +180,7 @@ async def call_requested_function(call_request: Function, func_lookup: dict[str,
     # call function
     try:
         f = func_lookup[func_name]
-        if not getattr(f, 'in_thread', True) or asyncio.iscoroutinefunction(f):
+        if not getattr(f, 'in_thread', True):
             print("awaiting coroutine")
             return await f(args)
         else:
