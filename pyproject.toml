@@ -14,6 +14,7 @@ jsonref = "^1.1.0"
 docstring-parser = "^0.15"
 json-autocomplete = "^0.1.0"
 openai = "^1.5.0"
+jsonschema = "^4.20.0"
 
 
 [build-system]

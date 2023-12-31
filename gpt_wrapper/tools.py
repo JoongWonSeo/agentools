@@ -8,6 +8,7 @@ from itertools import chain
 
 from docstring_parser import parse
 from pydantic import BaseModel, Field, create_model, ValidationError
+from jsonschema import Draft202012Validator
 import jsonref
 
 from .api import Function
@@ -98,7 +99,7 @@ class Toolkit(Tools):
 
 #================ Decorators =================#
 
-def function_tool(function=None, *, name: Optional[str] = None, check_description: bool = True, in_thread: Optional[bool] = None):
+def function_tool(function=None, *, name: Optional[str] = None, require_doc: bool = True, json_schema: Optional[dict] = None, in_thread: Optional[bool] = None):
     '''
     Simple decorator that:
     - Marks a function as a tool and enables it: `func.tool_enabled = True`
@@ -119,8 +120,16 @@ def function_tool(function=None, *, name: Optional[str] = None, check_descriptio
         
         func.name = name or func.__name__
         func.tool_enabled = True
-        func.validator = function_to_validator(func, name=func.name, check_description=check_description)
-        func.schema = [schema_to_openai_func(func.validator)]
+
+        if json_schema:
+            # take the given json schema
+            func.validator = validator_from_schema(json_schema, name=func.name)
+            func.schema = [schema_to_openai_func(json_schema)]
+        else:
+            # parse the docstring and create a pydantic model as validator
+            func.validator = validator_from_doc(func, name=func.name, require_doc=require_doc)
+            func.schema = [schema_to_openai_func(func.validator)]
+
         func.validate_and_call = validate_and_call
         func.lookup = {func.name: func.validate_and_call}
         func.validate_and_call.in_thread = not asyncio.iscoroutinefunction(func) if in_thread is None else in_thread
@@ -194,7 +203,7 @@ async def call_requested_function(call_request: Function, func_lookup: dict[str,
 #================ Utils =================#
 
 # Function -> Pydantic model
-def function_to_validator(func: Callable, name: Optional[str] = None, check_description = True) -> type[BaseModel]:
+def validator_from_doc(func: Callable, name: Optional[str] = None, require_doc = True) -> type[BaseModel]:
     '''
     Convert a function to a pydantic model for validation of function parameters.
 
@@ -227,7 +236,7 @@ def function_to_validator(func: Callable, name: Optional[str] = None, check_desc
         if param.name in ["self", "return", "return_type"]:
             continue
 
-        if check_description:
+        if require_doc:
             assert param.name in param_descriptions, (f"Missing description for parameter {param.name} in {func.__name__}'s docstring!")
         
         assert param.annotation != inspect.Parameter.empty, (f"Missing type annotation for parameter {param.name} in {func.__name__}!")
@@ -249,13 +258,27 @@ def function_to_validator(func: Callable, name: Optional[str] = None, check_desc
     return model
 
 
+# JSON Schema -> JSON Validator that raises ValidatonError just like Pydantic Model
+def validator_from_schema(json_schema: dict, name: Optional[str] = None) -> callable:
+    if name:
+        json_schema['title'] = name
+
+    # Validate json against schema
+    def validate_json(**state):
+        v = Draft202012Validator(json_schema)
+        if errors := '\n'.join({e.message for e in v.iter_errors(state)}):
+            raise ValidationError(errors)
+        return True
+    
+    return validate_json
+
+
 # Pydantic/JSON Schema -> OpenAI function schema
 def schema_to_openai_func(schema: dict | Type[BaseModel], nested=True) -> dict:
     if not isinstance(schema, dict) and issubclass(schema, BaseModel):
-        if nested:
-            schema = to_nested_schema(schema, no_title=False)
-        else:
-            schema = schema.model_json_schema()
+        schema = schema.model_json_schema()
+    if nested:
+        schema = to_nested_schema(schema, no_title=False)
 
     # Convert properties
     remove_title(schema['properties'])
@@ -275,9 +298,9 @@ def schema_to_openai_func(schema: dict | Type[BaseModel], nested=True) -> dict:
     }
 
 
-def to_nested_schema(model: Type[BaseModel], no_title=True) -> dict:
+def to_nested_schema(schema: dict, no_title=True) -> dict:
     '''nested json schema rather than refs'''
-    schema = jsonref.loads(json.dumps(model.model_json_schema()), proxies=False)
+    schema = jsonref.loads(json.dumps(schema), proxies=False)
     if 'definitions' in schema:
         schema.pop('definitions')
     if '$defs' in schema:
