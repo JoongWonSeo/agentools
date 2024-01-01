@@ -135,9 +135,9 @@ def function_tool(function=None, *, name: Optional[str] = None, require_doc: boo
 
         if json_schema:
             # take the given json schema
-            json_schema = deepcopy(json_schema)
-            func.validator = validator_from_schema(json_schema, name=func.name, override_with_doc_from=func if require_doc else None)
-            func.schema = [schema_to_openai_func(json_schema)]
+            schema_copy = deepcopy(json_schema)
+            func.validator = validator_from_schema(schema_copy, name=func.name, override_with_doc_from=func if require_doc else None)
+            func.schema = [schema_to_openai_func(schema_copy)]
         else:
             # parse the docstring and create a pydantic model as validator
             model, func.validator = validator_from_doc(func, name=func.name, require_doc=require_doc)
