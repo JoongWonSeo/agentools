@@ -62,6 +62,11 @@ class Toolkit(Tools):
     '''
     def __init__(self):
         self.tool_enabled = True
+        self.registered_tools = {} # explicitly registered, i.e. dynamically defined tools
+
+    def register_tool(self, tool):
+        '''Explicitly register a tool if it's not in the class definition'''
+        self.registered_tools[tool.name] = tool
 
     @property
     def schema(self) -> list[dict]:
@@ -79,7 +84,7 @@ class Toolkit(Tools):
     @property
     def _function_tools(self) -> dict[str, Callable]:
         '''dict of RAW FUNCTION NAME to function'''
-        return {
+        return self.registered_tools | {
             attr: getattr(self, attr)
             for attr in dir(type(self))
             if not isinstance(getattr(type(self), attr), property) # ignore properties to prevent infinite recursion
