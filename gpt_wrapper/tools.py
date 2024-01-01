@@ -128,7 +128,7 @@ def function_tool(function=None, *, name: Optional[str] = None, require_doc: boo
 
         if json_schema:
             # take the given json schema
-            func.validator = validator_from_schema(json_schema, name=func.name)
+            func.validator = validator_from_schema(json_schema, name=func.name, override_with_doc_from=func if require_doc else None)
             func.schema = [schema_to_openai_func(json_schema)]
         else:
             # parse the docstring and create a pydantic model as validator
@@ -276,9 +276,12 @@ def validator_from_doc(func: Callable, name: Optional[str] = None, require_doc =
 
 
 # JSON Schema -> JSON Validator that raises ValidatonError just like Pydantic Model
-def validator_from_schema(json_schema: dict, name: Optional[str] = None) -> callable:
+def validator_from_schema(json_schema: dict, name: Optional[str] = None, override_with_doc_from: Optional[Callable] = None) -> Callable:
     if name:
         json_schema['title'] = name
+    if override_with_doc_from:
+        doc = parse(inspect.getdoc(override_with_doc_from) or "")
+        json_schema['description'] = f"{doc.short_description or ''}\n{doc.long_description or ''}".strip()
 
     # Validate json against schema
     def validate_json(**state):
@@ -291,7 +294,7 @@ def validator_from_schema(json_schema: dict, name: Optional[str] = None) -> call
 
 
 # Pydantic/JSON Schema -> OpenAI function schema
-def schema_to_openai_func(schema: dict | Type[BaseModel], nested=True) -> dict:
+def schema_to_openai_func(schema: dict | Type[BaseModel], nested = True) -> dict:
     if not isinstance(schema, dict) and issubclass(schema, BaseModel):
         schema = schema.model_json_schema()
     if nested:
