@@ -135,6 +135,7 @@ def function_tool(function=None, *, name: Optional[str] = None, require_doc: boo
 
         if json_schema:
             # take the given json schema
+            json_schema = deepcopy(json_schema)
             func.validator = validator_from_schema(json_schema, name=func.name, override_with_doc_from=func if require_doc else None)
             func.schema = [schema_to_openai_func(json_schema)]
         else:
@@ -284,7 +285,6 @@ def validator_from_doc(func: Callable, name: Optional[str] = None, require_doc =
 
 # JSON Schema -> JSON Validator that raises ValidatonError just like Pydantic Model
 def validator_from_schema(json_schema: dict, name: Optional[str] = None, override_with_doc_from: Optional[Callable] = None) -> Callable:
-    json_schema = deepcopy(json_schema)
     if name:
         json_schema['title'] = name
     if override_with_doc_from:
