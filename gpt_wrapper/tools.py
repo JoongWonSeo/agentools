@@ -120,7 +120,13 @@ def function_tool(function=None, *, name: Optional[str] = None, require_doc: boo
                 args_without_self = {k: v for k, v in args.items() if k != 'self'}
                 func.validator(**args_without_self)
             except ValidationError as e:
-                return f'Invalid Argument: {e}'
+                # if the underlying function is async make sure to return a coroutine
+                if asyncio.iscoroutinefunction(func):
+                    async def async_error(e):
+                        return f'Invalid Argument: {e}'
+                    return async_error(e)
+                else:
+                    return f'Invalid Argument: {e}'
             return func(**args)
         
         func.name = name or func.__name__
