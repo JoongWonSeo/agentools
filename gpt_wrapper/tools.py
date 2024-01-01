@@ -5,6 +5,7 @@ import json
 import asyncio
 from functools import wraps
 from itertools import chain
+from copy import deepcopy
 
 from docstring_parser import parse
 from pydantic import BaseModel, Field, create_model, ValidationError as PydanticValError
@@ -283,6 +284,7 @@ def validator_from_doc(func: Callable, name: Optional[str] = None, require_doc =
 
 # JSON Schema -> JSON Validator that raises ValidatonError just like Pydantic Model
 def validator_from_schema(json_schema: dict, name: Optional[str] = None, override_with_doc_from: Optional[Callable] = None) -> Callable:
+    json_schema = deepcopy(json_schema)
     if name:
         json_schema['title'] = name
     if override_with_doc_from:
