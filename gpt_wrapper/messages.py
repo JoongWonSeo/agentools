@@ -44,6 +44,11 @@ class MessageHistory(ABC):
         '''Add a message to the history'''
         ...
     
+    @abstractmethod
+    async def reset(self):
+        '''Reset the history'''
+        ...
+    
     @staticmethod
     def ensure_dict(message: dict | ChatCompletionMessage):
         '''Convert assistant pydantic message to dict'''
@@ -69,6 +74,9 @@ class SimpleHistory(MessageHistory):
     async def append(self, message: dict | ChatCompletionMessage):
         message = self.ensure_dict(message)
         self._messages.append(message)
+    
+    async def reset(self):
+        self._messages = []
     
 
 # # example of extended features, simply override
