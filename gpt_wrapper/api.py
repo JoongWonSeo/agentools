@@ -19,18 +19,25 @@ from openai.types.chat.chat_completion_message_tool_call import (
     Function
 )
 
-from .utils import mock_response
+from .utils import mock_response, mock_streaming_response, MockResponse
 
 
 async def openai_chat(**openai_kwargs):
     '''
     Thin wrapper around openai with mocking and potential for other features/backend
     '''
-    # TODO: support mocked streaming
     if openai_kwargs['model'] == 'mock':
-        return mock_response("Hello, world!")
+        if openai_kwargs.get('stream'):
+            return await mock_streaming_response("Hello, world!")
+        else:
+            return mock_response("Hello, world!")
     elif openai_kwargs['model'] == 'echo':
-        return mock_response(openai_kwargs['messages'][-1]['content'])
+        last_msg = openai_kwargs['messages'][-1]['content']
+        if openai_kwargs.get('stream'):
+            return await mock_streaming_response(last_msg)
+        else:
+            return mock_response(last_msg)
+        
     # new client for each call (TODO: is this efficient?)
     client = AsyncOpenAI()
     return await client.chat.completions.create(**openai_kwargs)
