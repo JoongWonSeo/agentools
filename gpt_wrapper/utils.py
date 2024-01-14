@@ -25,42 +25,42 @@ def count_tokens(text: str) -> int:
 
 def mock_response(message: str):
     return ChatCompletion(
-            id='mock',
-            choices=[Choice(
-                finish_reason='stop',
-                index=0,
-                message=ChatCompletionMessage(
-                    role='assistant',
-                    content=message
-                )
-            )],
-            created=int(time.time()),
-            model='mock',
-            object='chat.completion',
-        )
+        id='mock',
+        choices=[Choice(
+            finish_reason='stop',
+            index=0,
+            message=ChatCompletionMessage(
+                role='assistant',
+                content=message
+            )
+        )],
+        created=int(time.time()),
+        model='mock',
+        object='chat.completion',
+    )
 
-async def mock_streaming_response(message: str):
+async def mock_streaming_response(message: str, sleep=0.05):
     async def gen():
         id = str(uuid4())[:8]
         t = int(time.time())
 
         for i, c in enumerate(message):
             last = i == len(message) - 1
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(sleep)
             yield ChatCompletionChunk(
-                    id=f'chatcmpl-mock-{id}',
-                    choices=[ChoiceChunk(
-                        delta=ChoiceDelta(
-                            role='assistant',
-                            content=c
-                        ),
-                        finish_reason='stop' if last else None,
-                        index=0,
-                    )],
-                    created=t,
-                    model='mock',
-                    object='chat.completion.chunk',
-                )
+                id=f'chatcmpl-mock-{id}',
+                choices=[ChoiceChunk(
+                    delta=ChoiceDelta(
+                        role='assistant',
+                        content=c
+                    ),
+                    finish_reason='stop' if last else None,
+                    index=0,
+                )],
+                created=t,
+                model='mock',
+                object='chat.completion.chunk',
+            )
     return MockAsyncGeneratorWrapper(gen())
 
 class MockAsyncGeneratorWrapper:
