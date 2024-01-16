@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{include = "gpt_wrapper"}]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.10"
 pydantic = "^2.5.1"
 tiktoken = "^0.5.2"
 jsonref = "^1.1.0"
