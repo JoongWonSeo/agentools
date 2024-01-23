@@ -314,18 +314,6 @@ class StructGPT(ChatGPT):
             **openai_kwargs
         ):
             match event:
-                case self.ResponseStartEvent():
-                    print(f"[User]: {event.prompt}", flush=True)
-
-                case self.TextMessageEvent():
-                    print(f"[ChatGPT]: {event.content}", flush=True)
-                
-                case self.ToolCallsEvent():
-                    print(f"[Tool Calls]: {event.tool_calls}", flush=True)
-
-                case self.ToolResultEvent():
-                    print(f"[Tool Result]: {event.result}", flush=True)
-                
                 case self.StructCreatedEvent():
                     print(f"[Struct]: {event.result}", flush=True)
                     return event.result
