@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "gpt-wrapper"
-version = "0.2.0"
+version = "0.3.0"
 description = ""
-authors = ["Joong-Won Seo <j.seo@appliedai.de>"]
+authors = ["Joong-Won Seo <joong.won.seo@gmail.com>"]
 readme = "README.md"
 packages = [{include = "gpt_wrapper"}]
 
