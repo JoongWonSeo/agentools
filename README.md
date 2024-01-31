@@ -1,4 +1,4 @@
-# AgenTools - Async Generator Tools for LLMs
+# [AgenTools](https://github.com/JoongWonSeo/agentools) - Async Generator Tools for LLMs
 
 A simple set of modules, wrappers and utils that are essential for LLM-based assistants and agents using the OpenAI API and function tools. It is useful for:
 - **OpenAI API:** Simple wrapper for the OpenAI API to provide mocked endpoints for easy testing without costing money, accumulating the delta chunks from streamed responses into partial responses, and easier token counting/tracking.
