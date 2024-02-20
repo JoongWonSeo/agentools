@@ -135,7 +135,8 @@ class Recordings:
         self.current_recorder = AsyncGeneratorRecorder()
 
     def stop(self):
-        self.recordings.append(self.current_recorder)
+        if self.current_recorder and self.current_recorder.recordings:
+            self.recordings.append(self.current_recorder)
         self.current_recorder = None
 
     @property
