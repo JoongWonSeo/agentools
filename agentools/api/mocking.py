@@ -1,6 +1,7 @@
 import time
 import asyncio
 from uuid import uuid4
+from copy import deepcopy
 
 from openai.types.chat.chat_completion import (
     ChatCompletion,  # Overall Completion, has id, stats, choices
@@ -87,3 +88,59 @@ class MockAsyncGeneratorWrapper:
 class MockResponse:
     async def aclose(self) -> None:
         pass
+
+
+# ========== Recorder ========== #
+class AsyncGeneratorRecorder:
+    """
+    An adapter class that wraps an async generator and records the output, including the time between each output.
+    Each call is recorded in their order, and the replayer will replay the responses in the same order.
+    """
+
+    def __init__(self):
+        self.recordings = []
+        self.replay_index = 0
+
+    async def _record(self, async_generator):
+        recording = []
+        t = time.time()
+        async for c in async_generator:
+            dt = time.time() - t
+            t = time.time()
+            recording.append((dt, deepcopy(c)))
+            yield c
+        self.recordings.append(recording)
+
+    async def record(self, async_generator):
+        return MockAsyncGeneratorWrapper(self._record(async_generator))
+
+    async def _replay(self, index):
+        recording = self.recordings[index]
+        for dt, c in recording:
+            await asyncio.sleep(dt)
+            yield c
+
+    async def replay(self):
+        r = self._replay(self.replay_index)
+        self.replay_index = (self.replay_index + 1) % len(self.recordings)
+        return MockAsyncGeneratorWrapper(r)
+
+
+class Recordings:
+    def __init__(self):
+        self.recordings = []
+        self.current_recorder = None
+
+    def start(self):
+        self.current_recorder = AsyncGeneratorRecorder()
+
+    def stop(self):
+        self.recordings.append(self.current_recorder)
+        self.current_recorder = None
+
+    @property
+    def replay_models(self):
+        return [f"replay:{i}" for i in range(len(self.recordings))]
+
+
+GLOBAL_RECORDINGS = Recordings()

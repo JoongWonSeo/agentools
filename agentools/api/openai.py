@@ -19,7 +19,7 @@ from openai.types.chat.chat_completion_message_tool_call import (
 )
 
 
-from .utils import mock_response, mock_streaming_response
+from .mocking import mock_response, mock_streaming_response, GLOBAL_RECORDINGS
 
 
 async def openai_chat(client: AsyncOpenAI | None = None, **openai_kwargs):
@@ -33,6 +33,10 @@ async def openai_chat(client: AsyncOpenAI | None = None, **openai_kwargs):
         client: the client to use, or None to use the default AsyncOpenAI client
         **openai_kwargs: kwargs to pass to `client.chat.completions.create`
     """
+
+    # The generator to return
+    gen = None
+
     if openai_kwargs["model"].startswith("mock"):
         msg = (
             openai_kwargs["model"].split(":", 1)[1]
@@ -40,19 +44,33 @@ async def openai_chat(client: AsyncOpenAI | None = None, **openai_kwargs):
             else "Hello, world!"
         )
         if openai_kwargs.get("stream"):
-            return await mock_streaming_response(msg)
+            gen = await mock_streaming_response(msg)
         else:
-            return await mock_response(msg)
+            gen = await mock_response(msg)
 
     elif openai_kwargs["model"] == "echo":
         last_msg = openai_kwargs["messages"][-1]["content"]
         if openai_kwargs.get("stream"):
-            return await mock_streaming_response(last_msg)
+            gen = await mock_streaming_response(last_msg)
         else:
-            return await mock_response(last_msg)
+            gen = await mock_response(last_msg)
 
-    client = client or AsyncOpenAI()
-    return await client.chat.completions.create(**openai_kwargs)
+    elif openai_kwargs["model"].startswith("replay"):
+        r = openai_kwargs["model"].split(":", 1)[1]
+        replay_model = GLOBAL_RECORDINGS.recordings[int(r)]
+        gen = await replay_model.replay()
+
+    else:
+        client = client or AsyncOpenAI()
+        gen = await client.chat.completions.create(**openai_kwargs)
+
+    # Record the response if recording
+    if GLOBAL_RECORDINGS.current_recorder:
+        print("Recording")
+        return await GLOBAL_RECORDINGS.current_recorder.record(gen)
+    else:
+        print("Not recording")
+        return gen
 
 
 async def accumulate_partial(
