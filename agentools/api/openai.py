@@ -66,10 +66,8 @@ async def openai_chat(client: AsyncOpenAI | None = None, **openai_kwargs):
 
     # Record the response if recording
     if GLOBAL_RECORDINGS.current_recorder:
-        print("Recording")
         return await GLOBAL_RECORDINGS.current_recorder.record(gen)
     else:
-        print("Not recording")
         return gen
 
 
