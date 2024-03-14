@@ -21,7 +21,7 @@ class Assistant(ABC):
     """
 
     class Event(ABC):
-        """Event base class for Assistant events"""
+        """Event base class for Assistant events that occur during a prompt response."""
 
         pass
 

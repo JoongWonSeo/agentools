@@ -4,7 +4,7 @@ Interactions with the OpenAI API and wrappers around the API.
 
 from typing import AsyncIterator
 
-from openai import OpenAI, AsyncOpenAI, AsyncStream
+from openai import AsyncOpenAI, AsyncStream
 from openai.types import CompletionUsage
 from openai.resources.chat.completions import NOT_GIVEN
 from openai.types.chat.chat_completion import (

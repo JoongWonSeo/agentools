@@ -1,6 +1,5 @@
 import asyncio
 from typing import Callable, Optional, AsyncIterator
-from collections.abc import Iterator
 
 from ..api.openai import (
     openai_chat,
@@ -74,7 +73,7 @@ class ChatGPT(Assistant):
         max_function_calls: int = MAX_FUNCTION_CALLS,
         parallel_calls=True,
         **openai_kwargs,
-    ) -> Iterator[Assistant.Event]:
+    ) -> AsyncIterator[Assistant.Event]:
         """
         Generate events from a single user prompt, yielding each message and tool call and everything else as it is received.
         This is the overall generalized form, and you would likely only override the smaller *_events() generators to customize each aspect instead.
