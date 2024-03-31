@@ -90,8 +90,9 @@ class Toolkit(Tools):
     def lookup_preview(self) -> dict[str, Callable]:
         """dict of TOOL NAME to argument-validated function"""
         return {
-            tool.name: self._with_self(tool.call_preview)
+            tool.name: self._with_self(tool.lookup_preview[tool.name])
             for tool in self._function_tools.values()
+            if tool.name in tool.lookup_preview
         }
 
     @property
@@ -173,8 +174,8 @@ async def call_function_preview(
     try:
         f = func_lookup_preview[func_name]
         if not getattr(f, "in_thread", True):
-            return await f(**args)
+            return await f(args)
         else:
-            return await asyncio.to_thread(f, **args)
+            return await asyncio.to_thread(f, args)
     except Exception as e:
         return f"Error: {e}"

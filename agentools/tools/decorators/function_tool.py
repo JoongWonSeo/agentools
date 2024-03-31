@@ -1,4 +1,5 @@
 import asyncio
+from functools import wraps
 from typing import Optional, Callable
 from copy import deepcopy
 
@@ -124,12 +125,16 @@ def _create_preview_decorator(original_function_tool):
         A decorator that registers a preview function for the given function.
         This function will be available in the `lookup_preview` dict.
         """
-        original_function_tool.lookup_preview[original_function_tool.name] = (
-            preview_func
-        )
+
+        @wraps(preview_func)
+        def wrapper(kwargs: dict[str, any]):
+            return preview_func(**kwargs)
+
+        original_function_tool.lookup_preview[original_function_tool.name] = wrapper
+
         # inherit the in_thread setting from the original function
         # TODO: make this controllable by the user
-        preview_func.in_thread = original_function_tool.validate_and_call.in_thread
-        return preview_func
+        wrapper.in_thread = original_function_tool.validate_and_call.in_thread
+        return wrapper
 
     return decorator
