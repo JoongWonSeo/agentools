@@ -97,9 +97,9 @@ def validator_from_schema(
         json_schema["title"] = name
     if override_with_doc_from:
         doc = parse(inspect.getdoc(override_with_doc_from) or "")
-        json_schema[
-            "description"
-        ] = f"{doc.short_description or ''}\n{doc.long_description or ''}".strip()
+        json_schema["description"] = (
+            f"{doc.short_description or ''}\n{doc.long_description or ''}".strip()
+        )
 
     # Validate json against schema
     def validate_json(**state):

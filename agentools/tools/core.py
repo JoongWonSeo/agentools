@@ -55,9 +55,7 @@ class Toolkit(Tools):
 
     def __init__(self):
         self.tool_enabled = True
-        self.registered_tools = (
-            {}
-        )  # explicitly registered, i.e. dynamically defined tools
+        self.registered_tools = {}  # explicitly registered, i.e. dynamically defined tools
 
     def register_tool(self, tool):
         """Explicitly register a tool if it's not in the class definition"""

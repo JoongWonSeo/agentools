@@ -6,23 +6,19 @@ from openai.types.chat import ChatCompletionMessage
 
 
 @overload
-def msg(*, system: str) -> dict[str, str]:
-    ...
+def msg(*, system: str) -> dict[str, str]: ...
 
 
 @overload
-def msg(*, user: str) -> dict[str, str]:
-    ...
+def msg(*, user: str) -> dict[str, str]: ...
 
 
 @overload
-def msg(*, assistant: str) -> dict[str, str]:
-    ...
+def msg(*, assistant: str) -> dict[str, str]: ...
 
 
 @overload
-def msg(*, tool: str, tool_call_id: str) -> dict[str, str]:
-    ...
+def msg(*, tool: str, tool_call_id: str) -> dict[str, str]: ...
 
 
 def msg(*, system=None, user=None, assistant=None, tool=None, tool_call_id=None):
