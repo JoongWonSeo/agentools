@@ -158,3 +158,8 @@ def remove_title(d) -> dict | list:
         for v in d:
             remove_title(v)
     return d
+
+
+# ========== Misc ========== #
+async def awaitable(val):
+    return val

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 from abc import ABC
 from dataclasses import dataclass
 
@@ -109,6 +109,14 @@ class Assistant(ABC):
         """Partial tool call was updated"""
 
         tool_calls: list[ToolCall]
+
+    @dataclass
+    class PartialToolResultEvent(Event):
+        """Result of a partial tool (preview) call"""
+
+        result: Any
+        tool_call: ToolCall
+        index: int = 0  # index of this tool call in the tool_calls list
 
     # ================ Error Events =================#
     @dataclass

@@ -66,7 +66,10 @@ async def openai_chat(client: AsyncOpenAI | None = None, **openai_kwargs):
 
     # Record the response if recording
     if GLOBAL_RECORDINGS.current_recorder:
-        return await GLOBAL_RECORDINGS.current_recorder.record(gen)
+        if openai_kwargs.get("stream"):
+            return await GLOBAL_RECORDINGS.current_recorder.record(gen)
+        else:
+            raise ValueError("Recording non-streaming responses is not supported yet.")
     else:
         return gen
 

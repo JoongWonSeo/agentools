@@ -1,6 +1,8 @@
 import asyncio
 from typing import Callable, Optional, AsyncIterator
 
+from agentools.tools.core import call_function_preview
+
 from ..api.openai import (
     openai_chat,
     accumulate_partial,
@@ -212,11 +214,22 @@ class ChatGPT(Assistant):
         self, tool_calls: list[ToolCall], tools: Tools, parallel_calls: bool
     ) -> AsyncIterator[Assistant.Event]:
         """
-        Generate events from a list of tool calls, yielding each tool call, executing them, and yielding the result. You should override this to customize the tool call handling, also defining your own events to yield.
+        Generate events from a list of tool preview calls, yielding each partial tool call, executing them, and yielding the result of the preview function. You should override this to customize the tool preview call handling, also defining your own events to yield.
         """
         yield self.PartialToolCallsEvent(tool_calls)
 
-        # TODO: call function preview functions
+        # call preview functions
+
+        # awaitables for each tool call
+        calls = [
+            atuple(i, call, call_function_preview(call.function, tools.lookup_preview))
+            for i, call in enumerate(tool_calls)
+        ]
+        # handle each call results as they come in (or in order)
+        calls = asyncio.as_completed(calls) if parallel_calls else calls
+        for completed in calls:
+            i, call, result = await completed
+            yield self.PartialToolResultEvent(result, call, i)
 
 
 class GPT(ChatGPT):
