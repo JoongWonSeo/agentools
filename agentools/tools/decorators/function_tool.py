@@ -1,6 +1,6 @@
 import asyncio
 from functools import wraps
-from typing import Optional, Callable
+from typing import Optional
 from copy import deepcopy
 
 from .utils import (
