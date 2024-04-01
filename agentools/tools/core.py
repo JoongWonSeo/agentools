@@ -162,7 +162,7 @@ async def call_function_preview(
     func_name = call_request.name
     partial_arguments = call_request.arguments
 
-    if func_name not in func_lookup_preview:
+    if func_name not in func_lookup_preview or not partial_arguments:
         return
     try:
         arguments = json_autocomplete(partial_arguments)
