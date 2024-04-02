@@ -1,7 +1,8 @@
 import asyncio
+import json
 from typing import Callable, Optional, AsyncIterator
 
-from agentools.tools.core import call_function_preview
+from json_autocomplete import json_autocomplete
 
 from ..api.openai import (
     openai_chat,
@@ -10,7 +11,7 @@ from ..api.openai import (
     ChatCompletion,
     ToolCall,
 )
-from ..tools import Tools, call_requested_function
+from ..tools import Tools, call_requested_function, call_function_preview
 from ..messages import MessageHistory, SimpleHistory, msg
 from .utils import atuple, format_event
 from .core import Assistant
@@ -196,17 +197,21 @@ class ChatGPT(Assistant):
         """
         yield self.ToolCallsEvent(tool_calls)
 
+        lookup = tools.lookup
+
         # awaitables for each tool call
-        calls = [
-            atuple(i, call, call_requested_function(call.function, tools.lookup))
-            for i, call in enumerate(tool_calls)
-        ]
+        calls = []
+        for i, call in enumerate(tool_calls):
+            name = call.function.name
+            args = call.function.arguments
+            task = atuple(i, call, call_requested_function(name, args, lookup))
+            calls.append(task)
+
         # handle each call results as they come in (or in order)
         calls = asyncio.as_completed(calls) if parallel_calls else calls
         for completed in calls:
             i, call, result = await completed
-            # stringify the result
-            result = str(result)
+            result = str(result)  # stringify the result
             await self.messages.append(msg(tool=result, tool_call_id=call.id))
             yield self.ToolResultEvent(result, call, i)
 
@@ -218,13 +223,36 @@ class ChatGPT(Assistant):
         """
         yield self.PartialToolCallsEvent(tool_calls)
 
-        # call preview functions
+        lookup_preview = tools.lookup_preview
 
-        # awaitables for each tool call
-        calls = [
-            atuple(i, call, call_function_preview(call.function, tools.lookup_preview))
-            for i, call in enumerate(tool_calls)
-        ]
+        if not lookup_preview:
+            return
+
+        # create preview function tasks
+        calls = []
+        for i, call in enumerate(tool_calls):
+            func = call.function.name
+            partial = call.function.arguments
+
+            if func not in lookup_preview or not partial.strip():
+                continue
+            try:
+                autocompleted = json_autocomplete(call.function.arguments)
+                args = json.loads(autocompleted)
+            except Exception:
+                continue
+
+            yield self.PartialFunctionToolCallEvent(
+                function_name=func,
+                partial=partial,
+                autocompleted=autocompleted,
+                arguments=args,
+                index=i,
+            )
+
+            task = atuple(i, call, call_function_preview(func, args, lookup_preview))
+            calls.append(task)
+
         # handle each call results as they come in (or in order)
         calls = asyncio.as_completed(calls) if parallel_calls else calls
         for completed in calls:

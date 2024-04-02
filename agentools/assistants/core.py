@@ -111,6 +111,16 @@ class Assistant(ABC):
         tool_calls: list[ToolCall]
 
     @dataclass
+    class PartialFunctionToolCallEvent(Event):
+        """One tool call, with autocompleted arguments"""
+
+        function_name: str
+        partial: str
+        autocompleted: str
+        arguments: dict
+        index: int = 0
+
+    @dataclass
     class PartialToolResultEvent(Event):
         """Result of a partial tool (preview) call"""
 

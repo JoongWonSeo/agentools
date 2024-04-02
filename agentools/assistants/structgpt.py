@@ -25,10 +25,14 @@ class StructGPT(ChatGPT):
         self, struct: BaseModel, model: str = "gpt-3.5-turbo", tool_name: str = None
     ):
         @function_tool(
-            name=tool_name, require_doc=False, json_schema=struct.model_json_schema()
+            name=tool_name,
+            require_doc=False,
+            json_schema=struct.model_json_schema(),
         )
         async def create(**kwargs):
             return struct(**kwargs)
+
+        # TODO: define preview function for struct
 
         super().__init__(SimpleHistory(), tools=create, model=model)
 
