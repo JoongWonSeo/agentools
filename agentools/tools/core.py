@@ -147,18 +147,15 @@ async def call_requested_function(
         return f"Error: Failed to parse arguments, make sure your arguments is a valid JSON object: {e}"
 
     # call function
-    try:
-        f = func_lookup[func_name]
+    f = func_lookup[func_name]
 
-        if f.include_call_id:
-            args = args | {"call_id": call_id}
+    if f.include_call_id:
+        args = args | {"call_id": call_id}
 
-        if not f.in_thread:
-            return await f(args)
-        else:
-            return await asyncio.to_thread(f, args)
-    except Exception as e:
-        return f"Error: {e}"
+    if not f.in_thread:
+        return await f(args)
+    else:
+        return await asyncio.to_thread(f, args)
 
 
 async def call_function_preview(
@@ -181,5 +178,5 @@ async def call_function_preview(
             return await f(args)
         else:
             return await asyncio.to_thread(f, args)
-    except Exception as e:
-        return f"Error: {e}"
+    except Exception:
+        pass

@@ -69,6 +69,8 @@ def streaming_function_tool(
             if include_call_id:
                 args = args | {"call_id": call_id}
 
+            if "self" in args:
+                args.pop("self")
             await stream.send(args, is_final=True)
 
             await task  # wait for the task to finish
@@ -80,7 +82,11 @@ def streaming_function_tool(
             if call_id not in func.tasks:
                 # function is now starting
                 stream = AsyncStream()
-                task = asyncio.create_task(func(stream))
+                if "self" in args:
+                    self = args.pop("self")
+                    task = asyncio.create_task(func(self, stream))
+                else:
+                    task = asyncio.create_task(func(stream))
                 func.tasks[call_id] = (task, stream)
             else:
                 task, stream = func.tasks[call_id]
@@ -88,6 +94,8 @@ def streaming_function_tool(
             if include_call_id:
                 args = args | {"call_id": call_id}
 
+            if "self" in args:  # self has already been passed
+                args.pop("self")
             await stream.send(args)
 
         # ========== Attach the tool attributes ========== #
