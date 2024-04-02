@@ -95,7 +95,8 @@ def streaming_function_tool(
         func.tool_enabled = function_final.tool_enabled
         func.schema = function_final.schema
         func.validator = function_final.validator
-        func.lookup = {func.name: function_final.validate_and_call}
+        func.validate_and_call = function_final.validate_and_call
+        func.lookup = {func.name: func.validate_and_call}
         func.lookup_preview = {func.name: function_preview}
 
         func.tasks = {}  # {call_id: (task, stream)}
