@@ -1,7 +1,7 @@
 import asyncio
 from functools import wraps
-from typing import Optional
 from copy import deepcopy
+from typing import Callable
 
 from .utils import (
     ValidationError,
@@ -13,12 +13,13 @@ from .utils import (
 
 
 def function_tool(
-    function=None,
+    function: Callable = None,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     require_doc: bool = True,
-    json_schema: Optional[dict] = None,
-    in_thread: Optional[bool] = None,
+    json_schema: dict | None = None,
+    in_thread: bool | None = None,
+    include_call_id: bool = False,
 ):
     """
     Simple decorator that:
@@ -34,6 +35,7 @@ def function_tool(
         require_doc: Whether to require a docstring to be present for the function.
         json_schema: A JSON schema given to model and for validation. If not provided, the docstring will be used.
         in_thread: Whether to run the function in a separate thread, regardless of whether it is async or not.
+        include_call_id: Whether to include the call_id in the function arguments.
     """
 
     def decorator(func):
@@ -68,6 +70,7 @@ def function_tool(
         func.validate_and_call.in_thread = (
             not asyncio.iscoroutinefunction(func) if in_thread is None else in_thread
         )
+        func.validate_and_call.include_call_id = include_call_id
 
         # ========= Attach subdecorators ========= #
         # slot for potential preview functions, registered by subdecorators
@@ -105,7 +108,7 @@ def _create_validate_and_call(func):
     return validate_and_call
 
 
-def _create_preview_decorator(original_function_tool):
+def _create_preview_decorator(orig_functool):
     """
     A decorator factory that creates a preview decorator for the given function.
     This enables the following syntax:
@@ -130,11 +133,12 @@ def _create_preview_decorator(original_function_tool):
         def wrapper(kwargs: dict[str, any]):
             return preview_func(**kwargs)
 
-        original_function_tool.lookup_preview[original_function_tool.name] = wrapper
+        orig_functool.lookup_preview[orig_functool.name] = wrapper
 
         # inherit the in_thread setting from the original function
         # TODO: make this controllable by the user
-        wrapper.in_thread = original_function_tool.validate_and_call.in_thread
+        wrapper.in_thread = orig_functool.validate_and_call.in_thread
+        wrapper.include_call_id = orig_functool.validate_and_call.include_call_id
         return wrapper
 
     return decorator

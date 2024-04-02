@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentools"
-version = "0.3.1"
+version = "0.4.0"
 description = ""
 authors = ["Joong-Won Seo <joong.won.seo@gmail.com>"]
 readme = "README.md"

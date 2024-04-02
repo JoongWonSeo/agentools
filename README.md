@@ -413,38 +413,59 @@ await model(
 
 
 > <code>[Preview] : </code><br/>
-> <code>[Preview] D: </code><br/>
-> <code>[Preview] Duck: </code><br/>
-> <code>[Preview] Duck Debug: </code><br/>
-> <code>[Preview] Duck Debugging: </code><br/>
-> <code>[Preview] Duck Debugging: </code><br/>
-> <code>[Preview] Duck Debugging: Qu</code><br/>
-> <code>[Preview] Duck Debugging: Quack</code><br/>
-> <code>[Preview] Duck Debugging: Quack away</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a trust</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a trusty</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a trusty duck</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a trusty duck companion</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a trusty duck companion by</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a trusty duck companion by your</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a trusty duck companion by your side</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a trusty duck companion by your side.</code><br/>
-> <code>[Preview] Duck Debugging: Quack away your coding bugs with the help of a trusty duck companion by your side.</code><br/>
-> <code>[Final Slogan] Duck Debugging: Quack away your coding bugs with the help of a trusty duck companion by your side.</code><br/>
+> <code>[Preview] Debug: </code><br/>
+> <code>[Preview] Debugging: </code><br/>
+> <code>[Preview] Debugging Ducks: </code><br/>
+> <code>[Preview] Debugging Ducks: </code><br/>
+> <code>[Preview] Debugging Ducks: Qu</code><br/>
+> <code>[Preview] Debugging Ducks: Quack</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away with</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away with the</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away with the help</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away with the help of</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away with the help of our</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away with the help of our debugging</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away with the help of our debugging ducks</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away with the help of our debugging ducks!</code><br/>
+> <code>[Preview] Debugging Ducks: Quack your bugs away with the help of our debugging ducks!</code><br/>
+> <code>[Final Slogan] Debugging Ducks: Quack your bugs away with the help of our debugging ducks!</code><br/>
 
 
 
 
 > <code>'I have created a slogan about how ducks can help with debugging.'</code><br/>
 
+
+If you need a more coherent logic shared between the `@preview` and the final `@function_tool`, e.g. do something at the start of the function call, share some data between previews, etc... It gets messy very fast!
+
+Instead, you can use the `@streaming_function_tool()` decorator, which receives a single `arg_stream` parameter, which is an async generator that yields the partial arguments, as streamed from the model. Therefore, you simply need to iterate through it, and perform the actual function call at the end of the iteration. The following is the equivalent of the previous example:
+
+> *Note that currently, you must pass the parameter as a `json_schema`. Soon, this could be parsed from the docstring as usual.*
+
+
+```python
+from pydantic import BaseModel
+
+
+class Slogan(BaseModel):
+    title: str
+    content: str
+
+
+@streaming_function_tool(json_schema=Slogan.model_json_schema())
+async def create_slogan(arg_stream):
+    print("Starting slogan creation...")
+
+    async for args in arg_stream:
+        title, content = args.get("title", ""), args.get("content", "")
+        print(f'{args} -> "{title}", "{content}"')
+
+    print(f"\n\n[Final Slogan] {title}: {content}")
+    return "Slogan created and shown to user! Simply tell the user that it was created."
+```
 
 ### Structured Data
 

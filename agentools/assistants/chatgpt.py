@@ -202,9 +202,10 @@ class ChatGPT(Assistant):
         # awaitables for each tool call
         calls = []
         for i, call in enumerate(tool_calls):
+            call_id = call.id
             name = call.function.name
             args = call.function.arguments
-            task = atuple(i, call, call_requested_function(name, args, lookup))
+            task = atuple(i, call, call_requested_function(name, args, lookup, call_id))
             calls.append(task)
 
         # handle each call results as they come in (or in order)
@@ -231,6 +232,7 @@ class ChatGPT(Assistant):
         # create preview function tasks
         calls = []
         for i, call in enumerate(tool_calls):
+            call_id = call.id
             func = call.function.name
             partial = call.function.arguments
 
@@ -250,7 +252,9 @@ class ChatGPT(Assistant):
                 index=i,
             )
 
-            task = atuple(i, call, call_function_preview(func, args, lookup_preview))
+            task = atuple(
+                i, call, call_function_preview(func, args, lookup_preview, call_id)
+            )
             calls.append(task)
 
         # handle each call results as they come in (or in order)
