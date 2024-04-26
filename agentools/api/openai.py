@@ -5,6 +5,7 @@ Interactions with the OpenAI API and wrappers around the API.
 from typing import AsyncIterator
 
 from openai import AsyncOpenAI, AsyncStream
+from groq import AsyncGroq
 from openai.types import CompletionUsage
 from openai.resources.chat.completions import NOT_GIVEN
 from openai.types.chat.chat_completion import (
@@ -22,7 +23,7 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from .mocking import mock_response, mock_streaming_response, GLOBAL_RECORDINGS
 
 
-async def openai_chat(client: AsyncOpenAI | None = None, **openai_kwargs):
+async def openai_chat(client: AsyncOpenAI | AsyncGroq | None = None, **openai_kwargs):
     """
     Thin wrapper around openai with mocking and potential for other features/backend
     - Use model='mock' to simply return "Hello, world"
@@ -61,7 +62,10 @@ async def openai_chat(client: AsyncOpenAI | None = None, **openai_kwargs):
         gen = await replay_model.replay()
 
     else:
-        client = client or AsyncOpenAI()
+        if openai_kwargs["model"].startswith("llama"):
+            client = client or AsyncGroq()
+        else:
+            client = client or AsyncOpenAI()
         gen = await client.chat.completions.create(**openai_kwargs)
 
     # Record the response if recording
