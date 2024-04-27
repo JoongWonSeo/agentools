@@ -100,7 +100,7 @@ class ChatGPT(Assistant):
                 parallel_calls,
                 openai_args=dict(
                     messages=self.messages.history,
-                    tools=tools.schema if tools else NOT_GIVEN,
+                    tools=tools.schema if tools else None,
                     model=model,
                     **openai_kwargs,
                 ),
