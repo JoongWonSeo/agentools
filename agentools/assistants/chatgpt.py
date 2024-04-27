@@ -232,6 +232,11 @@ class ChatGPT(Assistant):
         # create preview function tasks
         calls = []
         for i, call in enumerate(tool_calls):
+            # TODO: in theory, since this is streaming, we can do the following optimizations for all i < last_i, since they are already completed:
+            # - we can skip the preview call
+            # - we could in theory already start the final call task, and gather in the final call later
+            # easier if chunk/delta is also passed, since ca__id is always included in each chunk, i.e. use that to detect which call was changed.
+            # to help coordinate between partial and final, we can have a dict of call_id to task, so that partial may already kickstart the final task
             call_id = call.id
             func = call.function.name
             partial = call.function.arguments
