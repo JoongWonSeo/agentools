@@ -81,11 +81,17 @@ class StructGPT(ChatGPT):
         """
         yield self.ToolCallsEvent(tool_calls)
 
+        lookup = tools.lookup
+
         # awaitables for each tool call
-        calls = [
-            atuple(i, call, call_requested_function(call.function, tools.lookup))
-            for i, call in enumerate(tool_calls)
-        ]
+        calls = []
+        for i, call in enumerate(tool_calls):
+            call_id = call.id
+            name = call.function.name
+            args = call.function.arguments
+            task = atuple(i, call, call_requested_function(name, args, lookup, call_id))
+            calls.append(task)
+
         # handle each call results as they come in (or in order)
         calls = asyncio.as_completed(calls) if parallel_calls else calls
         for completed in calls:
