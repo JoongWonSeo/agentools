@@ -7,6 +7,10 @@ from typing import AsyncIterator
 from openai import AsyncOpenAI, AsyncStream
 from groq import AsyncGroq
 import openai.types.chat.chat_completion as Normal
+from openai.types.chat.chat_completion import (
+    ChatCompletion as ChatCompletion,
+    ChatCompletionMessage as ChatCompletionMessage,
+)  # re-export to __init__.py
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall as ToolCall,
