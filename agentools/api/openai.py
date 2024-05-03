@@ -6,12 +6,6 @@ from typing import AsyncIterator
 
 from openai import AsyncOpenAI, AsyncStream
 from groq import AsyncGroq
-from openai.types import CompletionUsage
-from openai.resources.chat.completions import NOT_GIVEN
-from openai.types.chat.chat_completion import (
-    ChatCompletion,  # Overall Completion, has id, stats, choices
-    ChatCompletionMessage,  # completion.choice[0].message, has role, content, tool_calls
-)
 import openai.types.chat.chat_completion as Normal
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_tool_call import (

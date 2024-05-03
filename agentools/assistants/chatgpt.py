@@ -7,7 +7,6 @@ from json_autocomplete import json_autocomplete
 from ..api.openai import (
     openai_chat,
     accumulate_partial,
-    NOT_GIVEN,
     ChatCompletion,
     ToolCall,
 )
