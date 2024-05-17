@@ -182,7 +182,7 @@ await model("Heya!", model="echo", event_logger=print)
 
 > <code>[ResponseStartEvent]: prompt=Heya!, tools=None, model=echo, max_function_calls=100, openai_kwargs={}</code><br/>
 > <code>[CompletionStartEvent]: call_index=0</code><br/>
-> <code>[CompletionEvent]: completion=ChatCompletion(id='mock', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='Heya!', role='assistant', function_call=None, tool_calls=None))], created=1714223558, model='mock', object='chat.completion', system_fingerprint=None, usage=None), call_index=0</code><br/>
+> <code>[CompletionEvent]: completion=ChatCompletion(id='mock', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='Heya!', role='assistant', function_call=None, tool_calls=None))], created=1715958919, model='mock', object='chat.completion', system_fingerprint=None, usage=None), call_index=0</code><br/>
 > <code>[FullMessageEvent]: message=ChatCompletionMessage(content='Heya!', role='assistant', function_call=None, tool_calls=None), choice_index=0</code><br/>
 > <code>[TextMessageEvent]: content=Heya!</code><br/>
 > <code>[ResponseEndEvent]: content=Heya!</code><br/>
@@ -263,7 +263,7 @@ await model("Say 'hello from GPT' to console!")
 
 
 
-> <code>'The message "hello from GPT" has been printed to the console.'</code><br/>
+> <code>"I have printed 'hello from GPT' to the console."</code><br/>
 
 
 To make the function a `@function_tool`, you must do the following:
@@ -368,7 +368,7 @@ await model("What's on my notepad?")
 
 
 
-> <code>'The notepad has a secret message: "Shhh... here\'s a secret: 42"'</code><br/>
+> <code>'The secret on your notepad is: 42'</code><br/>
 
 
 
@@ -380,17 +380,19 @@ await model(
 ```
 
 
-> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_eaQnZrNfmCUxrKhmeQ2ZsB0Y', function=Function(arguments='{"n": 8}', name='Fibonacci'), type='function'), ChatCompletionMessageToolCall(id='call_fqCrhWn22vGAdbskwHWM3YW2', function=Function(arguments='{"text": "50"}', name='write'), type='function')]</code><br/>
-> <code>[ToolResultEvent]: result=None, tool_call=ChatCompletionMessageToolCall(id='call_fqCrhWn22vGAdbskwHWM3YW2', function=Function(arguments='{"text": "50"}', name='write'), type='function'), index=1</code><br/>
-> <code>[ToolResultEvent]: result=21, tool_call=ChatCompletionMessageToolCall(id='call_eaQnZrNfmCUxrKhmeQ2ZsB0Y', function=Function(arguments='{"n": 8}', name='Fibonacci'), type='function'), index=0</code><br/>
-> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_rVlKWjN7hjQtBfdT8xPS4Nq9', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and 42 is 50"}', name='print_to_console'), type='function')]</code><br/>
-> <code>The sum of the 8th Fibonacci number and 42 is 50</code><br/>
-> <code>[ToolResultEvent]: result=success, tool_call=ChatCompletionMessageToolCall(id='call_rVlKWjN7hjQtBfdT8xPS4Nq9', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and 42 is 50"}', name='print_to_console'), type='function'), index=0</code><br/>
+> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_gDhzb8aiNmaJkUB6Z8tHZ7EU', function=Function(arguments='{"n": 8}', name='Fibonacci'), type='function'), ChatCompletionMessageToolCall(id='call_c9TjP8fWKTBrzie2TrzzOZeQ', function=Function(arguments='{}', name='read'), type='function')]</code><br/>
+> <code>[ToolResultEvent]: result=Shhh... here's a secret: 42, tool_call=ChatCompletionMessageToolCall(id='call_c9TjP8fWKTBrzie2TrzzOZeQ', function=Function(arguments='{}', name='read'), type='function'), index=1</code><br/>
+> <code>[ToolResultEvent]: result=21, tool_call=ChatCompletionMessageToolCall(id='call_gDhzb8aiNmaJkUB6Z8tHZ7EU', function=Function(arguments='{"n": 8}', name='Fibonacci'), type='function'), index=0</code><br/>
+> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_EU9GTOVIQHeF2LeXxlVcjYlk', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and the secret on your notepad: 63"}', name='write'), type='function')]</code><br/>
+> <code>[ToolResultEvent]: result=None, tool_call=ChatCompletionMessageToolCall(id='call_EU9GTOVIQHeF2LeXxlVcjYlk', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and the secret on your notepad: 63"}', name='write'), type='function'), index=0</code><br/>
+> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_uIp1BSsPlmYc6dl0xgYX4s2h', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and the secret on your notepad: 63"}', name='print_to_console'), type='function')]</code><br/>
+> <code>The sum of the 8th Fibonacci number and the secret on your notepad: 63</code><br/>
+> <code>[ToolResultEvent]: result=success, tool_call=ChatCompletionMessageToolCall(id='call_uIp1BSsPlmYc6dl0xgYX4s2h', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and the secret on your notepad: 63"}', name='print_to_console'), type='function'), index=0</code><br/>
 
 
 
 
-> <code>'I have calculated the 8th Fibonacci number (which is 21), added it to the number in your notes (42), and written the result (50) on your notepad. I have also printed the result to the console.'</code><br/>
+> <code>'I have written the sum of the 8th Fibonacci number (21) and the secret on your notepad (42), which totals to 63. It has also been printed to the console.'</code><br/>
 
 
 
@@ -402,7 +404,7 @@ notes.read()
 
 
 
-> <code>'50'</code><br/>
+> <code>'The sum of the 8th Fibonacci number and the secret on your notepad: 63'</code><br/>
 
 
 Notice how since our `write` function doesn't return anything, it defaults to `None` and our model gets confused! So don't forget to return an encouraging success message to make our model happy :)
@@ -443,45 +445,30 @@ await model(
 > <code>[Preview] Ducks and Debug: </code><br/>
 > <code>[Preview] Ducks and Debugging: </code><br/>
 > <code>[Preview] Ducks and Debugging: </code><br/>
-> <code>[Preview] Ducks and Debugging: Just</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving,</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide qu</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom to</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom to guide</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom to guide you</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom to guide you to</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom to guide you to the</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom to guide you to the solution</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom to guide you to the solution!</code><br/>
-> <code>[Preview] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom to guide you to the solution!</code><br/>
-> <code>[Final Slogan] Ducks and Debugging: Just like a rubber duck can help with problem-solving, having a duck by your side while debugging can provide quacks of wisdom to guide you to the solution!</code><br/>
+> <code>[Preview] Ducks and Debugging: Qu</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feather</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered friends</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered friends.</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered friends.</code><br/>
+> <code>[Final Slogan] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered friends.</code><br/>
 
 
 
 
-> <code>"I've created a slogan about how ducks can help with debugging!"</code><br/>
+> <code>'I have created a slogan about how ducks can help with debugging.'</code><br/>
 
 
 If you need a more coherent logic shared between the `@preview` and the final `@function_tool`, e.g. do something at the start of the function call, share some data between previews, etc... It gets messy very fast!
@@ -554,7 +541,7 @@ await generate_song("Come up with an all-time best K-hiphop song")
 
 
 
-> <code>Song(title='Eternal Rhyme', genres=['K-HipHop', 'Rap', 'R&B'], duration=240.0)</code><br/>
+> <code>Song(title='Eung Freestyle', genres=['K-HipHop', 'Rap', 'Hip-Hop'], duration=192.0)</code><br/>
 
 
 ## Misc.
