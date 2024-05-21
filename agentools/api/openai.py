@@ -21,6 +21,17 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from .mocking import mock_response, mock_streaming_response, GLOBAL_RECORDINGS
 
 
+def create_default_async_client(model: str) -> bool:
+    if (
+        model.startswith("llama")
+        or model.startswith("mixtral")
+        or model.startswith("gemma")
+    ):
+        return AsyncGroq()
+    else:
+        return AsyncOpenAI()
+
+
 async def openai_chat(client: AsyncOpenAI | AsyncGroq | None = None, **openai_kwargs):
     """
     Thin wrapper around openai with mocking and potential for other features/backend
@@ -60,10 +71,7 @@ async def openai_chat(client: AsyncOpenAI | AsyncGroq | None = None, **openai_kw
         gen = await replay_model.replay()
 
     else:
-        if openai_kwargs["model"].startswith("llama"):
-            client = client or AsyncGroq()
-        else:
-            client = client or AsyncOpenAI()
+        client = client or create_default_async_client(openai_kwargs["model"])
         gen = await client.chat.completions.create(**openai_kwargs)
 
     # Record the response if recording
