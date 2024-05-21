@@ -2,6 +2,7 @@ from typing import overload
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
+from pydantic import BaseModel
 from openai.types.chat import ChatCompletionMessage
 
 
@@ -59,7 +60,7 @@ class MessageHistory(ABC):
     @staticmethod
     def ensure_dict(message: dict | ChatCompletionMessage):
         """Convert assistant pydantic message to dict"""
-        if isinstance(message, ChatCompletionMessage):
+        if isinstance(message, BaseModel):
             message = message.model_dump()
             # remove any None values (tool calls)
             message = {k: v for k, v in message.items() if v is not None}
