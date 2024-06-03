@@ -87,7 +87,7 @@ from .api import (
     GLOBAL_RECORDINGS,
     Model,
 )
-from .assistant import (
+from .assistants import (
     Assistant,
     StructAssistant,
     msg,
