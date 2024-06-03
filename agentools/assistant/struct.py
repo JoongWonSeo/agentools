@@ -1,28 +1,30 @@
 import asyncio
 from dataclasses import dataclass
-from typing import Optional, AsyncIterator
+from typing import AsyncIterator, Optional
 
 from pydantic import BaseModel
 
-from ..api import ToolCall
+from ..api import ToolCall, Model
 from ..tools import Tools, function_tool, call_requested_function
-from ..messages import SimpleHistory, msg
+from .message import MessageHistory, msg
+from .event import Event, ToolCallsEvent, ToolResultEvent, MaxCallsExceededEvent
 from .core import Assistant
-from .chatgpt import ChatGPT
 from .utils import atuple, format_event
 
 
-class StructGPT(ChatGPT):
-    @dataclass
-    class StructCreatedEvent(Assistant.Event):
-        result: BaseModel
+@dataclass
+class StructCreatedEvent(Event):
+    result: BaseModel
 
-    @dataclass
-    class StructFailedEvent(Assistant.Event):
-        result: str
 
+@dataclass
+class StructFailedEvent(Event):
+    result: str
+
+
+class StructAssistant(Assistant):
     def __init__(
-        self, struct: BaseModel, model: str = "gpt-3.5-turbo", tool_name: str = None
+        self, struct: BaseModel, model: Model = Model.default(), tool_name: str = None
     ):
         @function_tool(
             name=tool_name,
@@ -34,7 +36,7 @@ class StructGPT(ChatGPT):
 
         # TODO: define preview function for struct
 
-        super().__init__(SimpleHistory(), tools=create, model=model)
+        super().__init__(MessageHistory(), tools=create, model=model)
 
         self.struct = struct
 
@@ -42,7 +44,7 @@ class StructGPT(ChatGPT):
         self,
         prompt: str,
         max_attempts: int = 5,
-        model: Optional[str] = None,
+        model: Model | None = None,
         event_logger: Optional[callable] = None,
         **openai_kwargs,
     ) -> BaseModel:
@@ -62,24 +64,24 @@ class StructGPT(ChatGPT):
                 event_logger(format_event(event))
 
             match event:
-                case self.StructCreatedEvent():
+                case StructCreatedEvent():
                     # print(f"[Struct]: {event.result}", flush=True)
                     return event.result
 
-                case self.StructFailedEvent():
+                case StructFailedEvent():
                     # print(f"[Struct Failed]: {event.result}", flush=True)
                     pass
 
-                case self.MaxCallsExceededEvent():
+                case MaxCallsExceededEvent():
                     raise Exception("Max attempts exceeded")
 
     async def tool_events(
         self, tool_calls: list[ToolCall], tools: Tools, parallel_calls: bool
-    ) -> AsyncIterator[Assistant.Event]:
+    ) -> AsyncIterator[Event]:
         """
         Generate events from a list of tool calls, yielding each tool call, executing them, and yielding the result. You should override this to customize the tool call handling, also defining your own events to yield.
         """
-        yield self.ToolCallsEvent(tool_calls)
+        yield ToolCallsEvent(tool_calls)
 
         lookup = tools.lookup
 
@@ -99,11 +101,11 @@ class StructGPT(ChatGPT):
 
             # if the result successfully executed, yield it
             if type(result) is self.struct:
-                yield self.StructCreatedEvent(result)
+                yield StructCreatedEvent(result)
                 result = "Success"
             else:
-                yield self.StructFailedEvent(result)
+                yield StructFailedEvent(result)
                 result = str(result)
 
             await self.messages.append(msg(tool=result, tool_call_id=call.id))
-            yield self.ToolResultEvent(result, call, i)
+            yield ToolResultEvent(result, call, i)
