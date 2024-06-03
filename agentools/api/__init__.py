@@ -3,21 +3,22 @@ __all__ = [
     "ChatCompletionMessage",
     "ToolCall",
     "ChatCompletionChunk",
-    "openai_chat",
+    "execute_api",
     "accumulate_partial",
     "set_mock_initial_delay",
     "set_mock_streaming_delay",
     "AsyncGeneratorRecorder",
     "Recordings",
     "GLOBAL_RECORDINGS",
+    "Model",
 ]
 
-from .openai import (
+from .execute import (
     ChatCompletion,
     ChatCompletionMessage,
     ToolCall,
     ChatCompletionChunk,
-    openai_chat,
+    execute_api,
     accumulate_partial,
 )
 from .mocking import (
@@ -27,3 +28,4 @@ from .mocking import (
     Recordings,
     GLOBAL_RECORDINGS,
 )
+from .model import Model

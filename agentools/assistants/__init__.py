@@ -1,5 +1,50 @@
-__all__ = ["Assistant", "ChatGPT", "GPT", "StructGPT"]
+__all__ = [
+    "Assistant",
+    "StructAssistant",
+    "msg",
+    "MessageHistory",
+    "Event",
+    "ResponseStartEvent",
+    "CompletionStartEvent",
+    "CompletionEvent",
+    "FullMessageEvent",
+    "TextMessageEvent",
+    "ToolCallsEvent",
+    "ToolResultEvent",
+    "ResponseEndEvent",
+    "PartialCompletionEvent",
+    "PartialMessageEvent",
+    "MaxCallsExceededEvent",
+    "PartialTextMessageEvent",
+    "PartialToolCallsEvent",
+    "PartialFunctionToolCallEvent",
+    "PartialToolResultEvent",
+    "MaxTokensExceededEvent",
+    "ModelTimeoutEvent",
+    "ToolTimeoutEvent",
+]
 
 from .core import Assistant
-from .chatgpt import ChatGPT, GPT
-from .structgpt import StructGPT
+from .struct import StructAssistant
+from .message import msg, MessageHistory
+from .event import (
+    Event,
+    ResponseStartEvent,
+    CompletionStartEvent,
+    CompletionEvent,
+    FullMessageEvent,
+    TextMessageEvent,
+    ToolCallsEvent,
+    ToolResultEvent,
+    ResponseEndEvent,
+    PartialCompletionEvent,
+    PartialMessageEvent,
+    MaxCallsExceededEvent,
+    PartialTextMessageEvent,
+    PartialToolCallsEvent,
+    PartialFunctionToolCallEvent,
+    PartialToolResultEvent,
+    MaxTokensExceededEvent,
+    ModelTimeoutEvent,
+    ToolTimeoutEvent,
+)

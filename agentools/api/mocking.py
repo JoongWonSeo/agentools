@@ -28,6 +28,14 @@ def set_mock_streaming_delay(delay):
     MOCK_STREAMING_DELAY = delay
 
 
+async def mock(stream: bool, message: str, initial_delay=None):
+    """The interface for using mock"""
+    if stream:
+        return await mock_streaming_response(message, initial_delay)
+    else:
+        return await mock_response(message, initial_delay)
+
+
 async def mock_response(message: str, initial_delay=None):
     await asyncio.sleep(MOCK_INITIAL_DELAY if initial_delay is None else initial_delay)
     return ChatCompletion(

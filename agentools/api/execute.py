@@ -4,8 +4,7 @@ Interactions with the OpenAI API and wrappers around the API.
 
 from typing import AsyncIterator
 
-from openai import AsyncOpenAI, AsyncStream
-from groq import AsyncGroq
+from openai import AsyncStream
 import openai.types.chat.chat_completion as Normal
 from openai.types.chat.chat_completion import (
     ChatCompletion as ChatCompletion,
@@ -18,65 +17,45 @@ from openai.types.chat.chat_completion_message_tool_call import (
 )
 
 
-from .mocking import mock_response, mock_streaming_response, GLOBAL_RECORDINGS
+from .model import Model
+from .mocking import mock, GLOBAL_RECORDINGS
 
 
-def create_default_async_client(model: str) -> bool:
-    if (
-        model.startswith("llama")
-        or model.startswith("mixtral")
-        or model.startswith("gemma")
-    ):
-        return AsyncGroq()
-    else:
-        return AsyncOpenAI()
-
-
-async def openai_chat(client: AsyncOpenAI | AsyncGroq | None = None, **openai_kwargs):
+async def execute_api(model: Model, **openai_kwargs):
     """
-    Thin wrapper around openai with mocking and potential for other features/backend
-    - Use model='mock' to simply return "Hello, world"
-    - Use model="mock:<message>" to return the message
-    - Use model='echo' to echo the last message
-
     Args:
         client: the client to use, or None to use the default AsyncOpenAI client
-        **openai_kwargs: kwargs to pass to `client.chat.completions.create`
     """
 
     # The generator to return
     gen = None
 
-    if openai_kwargs["model"].startswith("mock"):
-        msg = (
-            openai_kwargs["model"].split(":", 1)[1]
-            if ":" in openai_kwargs["model"]
-            else "Hello, world!"
-        )
-        if openai_kwargs.get("stream"):
-            gen = await mock_streaming_response(msg)
-        else:
-            gen = await mock_response(msg)
+    stream = openai_kwargs.get("stream")
+    match model.client:
+        case Model.Mock():
+            # model_name being the word to be mocked
+            gen = await mock(stream, model.model_name)
+        case Model.Echo():
+            last_msg = openai_kwargs["messages"][-1]["content"]
+            gen = await mock(stream, last_msg)
+        case Model.Replay():
+            r = model.model_name
+            replay_model = GLOBAL_RECORDINGS.recordings[int(r)]
+            gen = await replay_model.replay()
 
-    elif openai_kwargs["model"] == "echo":
-        last_msg = openai_kwargs["messages"][-1]["content"]
-        if openai_kwargs.get("stream"):
-            gen = await mock_streaming_response(last_msg)
-        else:
-            gen = await mock_response(last_msg)
-
-    elif openai_kwargs["model"].startswith("replay"):
-        r = openai_kwargs["model"].split(":", 1)[1]
-        replay_model = GLOBAL_RECORDINGS.recordings[int(r)]
-        gen = await replay_model.replay()
-
-    else:
-        client = client or create_default_async_client(openai_kwargs["model"])
-        gen = await client.chat.completions.create(**openai_kwargs)
+        case _:
+            # AsyncGroq or
+            # AsyncOpenAI or
+            # AsyncOpenAI(base_url=url)
+            client = model.client
+            # Pass on the model name
+            gen = await client.chat.completions.create(
+                model=model.model_name, **openai_kwargs
+            )
 
     # Record the response if recording
     if GLOBAL_RECORDINGS.current_recorder:
-        if openai_kwargs.get("stream"):
+        if stream:
             return await GLOBAL_RECORDINGS.current_recorder.record(gen)
         else:
             raise ValueError("Recording non-streaming responses is not supported yet.")
