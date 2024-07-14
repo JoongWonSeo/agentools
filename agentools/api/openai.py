@@ -20,6 +20,16 @@ from openai.types.chat.chat_completion_message_tool_call import (
 
 from .mocking import mock_response, mock_streaming_response, GLOBAL_RECORDINGS
 
+try:
+    default_groq_client = AsyncGroq()
+except Exception:
+    default_groq_client = None
+
+try:
+    default_openai_client = AsyncOpenAI()
+except Exception:
+    default_openai_client = None
+
 
 def create_default_async_client(model: str) -> bool:
     if (
@@ -27,9 +37,13 @@ def create_default_async_client(model: str) -> bool:
         or model.startswith("mixtral")
         or model.startswith("gemma")
     ):
-        return AsyncGroq()
+        if default_groq_client is None:
+            raise ValueError("Default Groq client could not be created.")
+        return default_groq_client
     else:
-        return AsyncOpenAI()
+        if default_openai_client is None:
+            raise ValueError("Default OpenAI client could not be created.")
+        return default_openai_client
 
 
 async def openai_chat(client: AsyncOpenAI | AsyncGroq | None = None, **openai_kwargs):
