@@ -1,6 +1,6 @@
 import inspect
 import json
-from typing import Callable, Optional, Type
+from typing import Callable
 
 from docstring_parser import parse
 from pydantic import BaseModel, Field, create_model, ValidationError as PydanticValError
@@ -13,8 +13,11 @@ class ValidationError(BaseException):
 
 
 # Function -> Pydantic model
-def validator_from_doc(
-    func: Callable, name: Optional[str] = None, require_doc=True
+def pydantic_from_doc(
+    func: Callable,
+    name: str | None = None,
+    require_doc=True,
+    use_only_description=False,
 ) -> type[BaseModel]:
     """
     Convert a function to a pydantic model for validation of function parameters.
@@ -22,9 +25,11 @@ def validator_from_doc(
     Args:
         func: function to convert
         name: name of the model, defaults to func.__name__
+        require_doc: whether to require a docstring to be present for the function
+        use_only_description: whether to use only the overall description from the docstring, instead of each parameter's description
 
     Returns:
-        pydantic model
+        pydantic model, validator function
     """
     sig: inspect.Signature = inspect.signature(func)
     doc = parse(inspect.getdoc(func) or "")
@@ -47,14 +52,14 @@ def validator_from_doc(
         if param.name in ["self", "return", "return_type"]:
             continue
 
-        if require_doc:
+        if require_doc and not use_only_description:
             assert (
                 param.name in param_descriptions
-            ), f"Missing description for parameter {param.name} in {func.__name__}'s docstring!"
+            ), f"Missing description for parameter `{param.name}` in `{func.__name__}`'s docstring!"
 
         assert (
             param.annotation != inspect.Parameter.empty
-        ), f"Missing type annotation for parameter {param.name} in {func.__name__}!"
+        ), f"Missing type annotation for parameter `{param.name}` in `{func.__name__}`!"
 
         model_fields[param.name] = (
             param.annotation,  # type
@@ -70,28 +75,14 @@ def validator_from_doc(
     # create a pydantic model for function argument validation
     model = create_model(name, __doc__=summary or None, **model_fields)
 
-    # validator function
-    def validate_pydantic(**state):
-        try:
-            model(**state)
-        except PydanticValError as e:
-            err = "\n".join(
-                [
-                    l
-                    for l in str(e).splitlines()
-                    if "further information" not in l.lower()
-                ]
-            )
-            raise ValidationError(err)
-
-    return model, validate_pydantic
+    return model
 
 
 # JSON Schema -> JSON Validator that raises ValidatonError just like Pydantic Model
 def validator_from_schema(
     json_schema: dict,
-    name: Optional[str] = None,
-    override_with_doc_from: Optional[Callable] = None,
+    name: str | None = None,
+    override_with_doc_from: Callable | None = None,
 ) -> Callable:
     if name:
         json_schema["title"] = name
@@ -111,8 +102,27 @@ def validator_from_schema(
     return validate_json
 
 
+# Pydantic model -> Pydantic validator function
+def validator_from_pydantic(model: type[BaseModel]) -> Callable:
+    # validator function
+    def validate_pydantic(**state):
+        try:
+            model(**state)
+        except PydanticValError as e:
+            err = "\n".join(
+                [
+                    line
+                    for line in str(e).splitlines()
+                    if "further information" not in line.lower()
+                ]
+            )
+            raise ValidationError(err)
+
+    return validate_pydantic
+
+
 # Pydantic/JSON Schema -> OpenAI function schema
-def schema_to_openai_func(schema: dict | Type[BaseModel], nested=True) -> dict:
+def schema_to_openai_func(schema: dict | type[BaseModel], nested=True) -> dict:
     if not isinstance(schema, dict) and issubclass(schema, BaseModel):
         schema = schema.model_json_schema()
     if nested:
@@ -150,7 +160,7 @@ def to_nested_schema(schema: dict, no_title=True) -> dict:
 
 def remove_title(d) -> dict | list:
     if isinstance(d, dict):
-        if "title" in d and type(d["title"]) == str:
+        if "title" in d and isinstance(d["title"], str):
             d.pop("title")
         for v in d.values():
             remove_title(v)

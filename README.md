@@ -69,7 +69,7 @@ await model("Can you repeat my last message please?")
 
 
 
-> <code>'Of course! Your last message was "Hey!"'</code><br/>
+> <code>'Of course! You said, "Hey!"'</code><br/>
 
 
 
@@ -84,7 +84,7 @@ model.messages.history
 > <code>[{'role': 'user', 'content': 'Hey!'},</code><br/>
 > <code> {'content': 'Hello! How can I assist you today?', 'role': 'assistant'},</code><br/>
 > <code> {'role': 'user', 'content': 'Can you repeat my last message please?'},</code><br/>
-> <code> {'content': 'Of course! Your last message was "Hey!"', 'role': 'assistant'}]</code><br/>
+> <code> {'content': 'Of course! You said, "Hey!"', 'role': 'assistant'}]</code><br/>
 
 
 ### System prompt and more on `MessageHistory`
@@ -182,7 +182,7 @@ await model("Heya!", model="echo", event_logger=print)
 
 > <code>[ResponseStartEvent]: prompt=Heya!, tools=None, model=echo, max_function_calls=100, openai_kwargs={}</code><br/>
 > <code>[CompletionStartEvent]: call_index=0</code><br/>
-> <code>[CompletionEvent]: completion=ChatCompletion(id='mock', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='Heya!', role='assistant', function_call=None, tool_calls=None))], created=1715958919, model='mock', object='chat.completion', system_fingerprint=None, usage=None), call_index=0</code><br/>
+> <code>[CompletionEvent]: completion=ChatCompletion(id='mock', choices=[Choice(finish_reason='stop', index=0, logprobs=None, message=ChatCompletionMessage(content='Heya!', role='assistant', function_call=None, tool_calls=None))], created=1721161834, model='mock', object='chat.completion', service_tier=None, system_fingerprint=None, usage=None), call_index=0</code><br/>
 > <code>[FullMessageEvent]: message=ChatCompletionMessage(content='Heya!', role='assistant', function_call=None, tool_calls=None), choice_index=0</code><br/>
 > <code>[TextMessageEvent]: content=Heya!</code><br/>
 > <code>[ResponseEndEvent]: content=Heya!</code><br/>
@@ -263,7 +263,7 @@ await model("Say 'hello from GPT' to console!")
 
 
 
-> <code>"I have printed 'hello from GPT' to the console."</code><br/>
+> <code>'The message "hello from GPT" has been successfully printed to the console.'</code><br/>
 
 
 To make the function a `@function_tool`, you must do the following:
@@ -352,13 +352,13 @@ notes.read()
 > <code>"Shhh... here's a secret: 42"</code><br/>
 
 
-As before, simply pass the toolkit to the model. To use multiple tools and toolkits, simply use the `ToolList` class:
+As before, simply pass the toolkit to the model. To use multiple tools and toolkits, simply put them in a list:
 
 
 
 ```python
 model = ChatGPT(
-    tools=ToolList(notes, print_to_console, fib),
+    tools=[notes, print_to_console, fib],
 )
 
 await model("What's on my notepad?")
@@ -368,7 +368,7 @@ await model("What's on my notepad?")
 
 
 
-> <code>'The secret on your notepad is: 42'</code><br/>
+> <code>'On your notepad, it says: "Shhh... here\'s a secret: 42"'</code><br/>
 
 
 
@@ -376,23 +376,23 @@ await model("What's on my notepad?")
 await model(
     "Can you calculate the 8th fibonacci number, add it to the number in my notes, and write it? also print it to console as well.",
     event_logger=lambda x: print(x) if x.startswith("[Tool") else None,
+    parallel_tool_calls=False,
 )
 ```
 
 
-> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_gDhzb8aiNmaJkUB6Z8tHZ7EU', function=Function(arguments='{"n": 8}', name='Fibonacci'), type='function'), ChatCompletionMessageToolCall(id='call_c9TjP8fWKTBrzie2TrzzOZeQ', function=Function(arguments='{}', name='read'), type='function')]</code><br/>
-> <code>[ToolResultEvent]: result=Shhh... here's a secret: 42, tool_call=ChatCompletionMessageToolCall(id='call_c9TjP8fWKTBrzie2TrzzOZeQ', function=Function(arguments='{}', name='read'), type='function'), index=1</code><br/>
-> <code>[ToolResultEvent]: result=21, tool_call=ChatCompletionMessageToolCall(id='call_gDhzb8aiNmaJkUB6Z8tHZ7EU', function=Function(arguments='{"n": 8}', name='Fibonacci'), type='function'), index=0</code><br/>
-> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_EU9GTOVIQHeF2LeXxlVcjYlk', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and the secret on your notepad: 63"}', name='write'), type='function')]</code><br/>
-> <code>[ToolResultEvent]: result=None, tool_call=ChatCompletionMessageToolCall(id='call_EU9GTOVIQHeF2LeXxlVcjYlk', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and the secret on your notepad: 63"}', name='write'), type='function'), index=0</code><br/>
-> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_uIp1BSsPlmYc6dl0xgYX4s2h', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and the secret on your notepad: 63"}', name='print_to_console'), type='function')]</code><br/>
-> <code>The sum of the 8th Fibonacci number and the secret on your notepad: 63</code><br/>
-> <code>[ToolResultEvent]: result=success, tool_call=ChatCompletionMessageToolCall(id='call_uIp1BSsPlmYc6dl0xgYX4s2h', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number and the secret on your notepad: 63"}', name='print_to_console'), type='function'), index=0</code><br/>
+> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_wxaisBbFMYRa0XNcTnP9MH1b', function=Function(arguments='{"n":8}', name='Fibonacci'), type='function')]</code><br/>
+> <code>[ToolResultEvent]: result=21, tool_call=ChatCompletionMessageToolCall(id='call_wxaisBbFMYRa0XNcTnP9MH1b', function=Function(arguments='{"n":8}', name='Fibonacci'), type='function'), index=0</code><br/>
+> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_gt5ZnA5v2VJL5R2gyPeHRN0a', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number (21) and the number on your notepad (42) is 63"}', name='write'), type='function')]</code><br/>
+> <code>[ToolResultEvent]: result=None, tool_call=ChatCompletionMessageToolCall(id='call_gt5ZnA5v2VJL5R2gyPeHRN0a', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number (21) and the number on your notepad (42) is 63"}', name='write'), type='function'), index=0</code><br/>
+> <code>[ToolCallsEvent]: tool_calls=[ChatCompletionMessageToolCall(id='call_ErYx6g7gpVTnLsqg59oxHI9C', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number (21) and the number on your notepad (42) is 63"}', name='print_to_console'), type='function')]</code><br/>
+> <code>The sum of the 8th Fibonacci number (21) and the number on your notepad (42) is 63</code><br/>
+> <code>[ToolResultEvent]: result=success, tool_call=ChatCompletionMessageToolCall(id='call_ErYx6g7gpVTnLsqg59oxHI9C', function=Function(arguments='{"text":"The sum of the 8th Fibonacci number (21) and the number on your notepad (42) is 63"}', name='print_to_console'), type='function'), index=0</code><br/>
 
 
 
 
-> <code>'I have written the sum of the 8th Fibonacci number (21) and the secret on your notepad (42), which totals to 63. It has also been printed to the console.'</code><br/>
+> <code>'I have written on your notepad. The sum of the 8th Fibonacci number (21) and the number on your notepad (42) is 63. I have also printed it to the console.'</code><br/>
 
 
 
@@ -404,7 +404,7 @@ notes.read()
 
 
 
-> <code>'The sum of the 8th Fibonacci number and the secret on your notepad: 63'</code><br/>
+> <code>'The sum of the 8th Fibonacci number (21) and the number on your notepad (42) is 63'</code><br/>
 
 
 Notice how since our `write` function doesn't return anything, it defaults to `None` and our model gets confused! So don't forget to return an encouraging success message to make our model happy :)
@@ -448,57 +448,94 @@ await model(
 > <code>[Preview] Ducks and Debugging: Qu</code><br/>
 > <code>[Preview] Ducks and Debugging: Quack</code><br/>
 > <code>[Preview] Ducks and Debugging: Quack your</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feather</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered friends</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered friends.</code><br/>
-> <code>[Preview] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered friends.</code><br/>
-> <code>[Final Slogan] Ducks and Debugging: Quack your way to bug-free code with the help of our feathered friends.</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help of</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help of a</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help of a debugging</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help of a debugging duck</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help of a debugging duck by</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help of a debugging duck by your</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help of a debugging duck by your side</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help of a debugging duck by your side.</code><br/>
+> <code>[Preview] Ducks and Debugging: Quack your code bugs away with the help of a debugging duck by your side.</code><br/>
+> <code>[Final Slogan] Ducks and Debugging: Quack your code bugs away with the help of a debugging duck by your side.</code><br/>
 
 
 
 
-> <code>'I have created a slogan about how ducks can help with debugging.'</code><br/>
+> <code>'I have created a slogan about how ducks can help with debugging!'</code><br/>
 
 
 If you need a more coherent logic shared between the `@preview` and the final `@function_tool`, e.g. do something at the start of the function call, share some data between previews, etc... It gets messy very fast!
 
 Instead, you can use the `@streaming_function_tool()` decorator, which receives a single `arg_stream` parameter, which is an async generator that yields the partial arguments, as streamed from the model. Therefore, you simply need to iterate through it, and perform the actual function call at the end of the iteration. The following is the equivalent of the previous example:
 
-> _Note that currently, you must pass the parameter as a `json_schema`. Soon, this could be parsed from the docstring as usual._
+> _Note that currently, you must pass the parameter as a `schema` (either JSON Schema or Pydantic BaseModel)._
 
 
 
 ```python
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Slogan(BaseModel):
-    title: str
-    content: str
+    """A slogan for a product"""
+
+    title: str = Field(description="MUST BE EXACTLY 3 WORDS!")
+    content: str = Field(description="less than 10 words")
 
 
-@streaming_function_tool(json_schema=Slogan.model_json_schema())
+@streaming_function_tool(schema=Slogan)
 async def create_slogan(arg_stream):
     print("Starting slogan creation...")
 
     async for args in arg_stream:
         title, content = args.get("title", ""), args.get("content", "")
-        print(f'{args} -> "{title}", "{content}"')
+        print(f'{args} -> "{title}", "{content}"', flush=True)
 
     print(f"\n\n[Final Slogan] {title}: {content}")
     return "Slogan created and shown to user! Simply tell the user that it was created."
 ```
+
+
+```python
+model = ChatGPT(tools=create_slogan)
+await model(
+    "Create a 1-sentence slogan about how ducks can help with debugging.", stream=True
+)
+```
+
+
+> <code>Starting slogan creation...</code><br/>
+> <code>{'': None} -> "", ""</code><br/>
+> <code>{'title': None} -> "None", ""</code><br/>
+> <code>{'title': ''} -> "", ""</code><br/>
+> <code>{'title': 'Debug'} -> "Debug", ""</code><br/>
+> <code>{'title': 'Debugging'} -> "Debugging", ""</code><br/>
+> <code>{'title': 'Debugging Ducks'} -> "Debugging Ducks", ""</code><br/>
+> <code>{'title': 'Debugging Ducks', '': None} -> "Debugging Ducks", ""</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': None} -> "Debugging Ducks", "None"</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': ''} -> "Debugging Ducks", ""</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': 'Qu'} -> "Debugging Ducks", "Qu"</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': 'Quack'} -> "Debugging Ducks", "Quack"</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': 'Quack through'} -> "Debugging Ducks", "Quack through"</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': 'Quack through errors'} -> "Debugging Ducks", "Quack through errors"</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': 'Quack through errors effortlessly'} -> "Debugging Ducks", "Quack through errors effortlessly"</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': 'Quack through errors effortlessly.'} -> "Debugging Ducks", "Quack through errors effortlessly."</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': 'Quack through errors effortlessly.'} -> "Debugging Ducks", "Quack through errors effortlessly."</code><br/>
+> <code>{'title': 'Debugging Ducks', 'content': 'Quack through errors effortlessly.'} -> "Debugging Ducks", "Quack through errors effortlessly."</code><br/>
+> <code>[Final Slogan] Debugging Ducks: Quack through errors effortlessly.</code><br/>
+
+
+
+
+> <code>'I have created a slogan: "Debugging Ducks - Quack through errors effortlessly."'</code><br/>
+
 
 ### Structured Data
 
@@ -507,24 +544,33 @@ We can very easily define a Pydantic model that can be generated by the LLM mode
 
 
 ```python
+from enum import StrEnum
 from pydantic import BaseModel, Field
+
+
+class Language(StrEnum):
+    EN = "en"
+    DE = "de"
+    KO = "ko"
 
 
 class Song(BaseModel):
     title: str
     genres: list[str] = Field(description="AT LEAST 3 genres!")
     duration: float
+    language: Language
+    has_lyrics: bool
 
 
 # normal use
-Song(title="Hello", genres=["pop"], duration=3.5)
+Song(title="Hello", genres=["pop"], duration=3.5, language=Language.EN, has_lyrics=True)
 ```
 
 
 
 
 
-> <code>Song(title='Hello', genres=['pop'], duration=3.5)</code><br/>
+> <code>Song(title='Hello', genres=['pop'], duration=3.5, language=<Language.EN: 'en'>, has_lyrics=True)</code><br/>
 
 
 Create a `StructGPT` object with your pydantic model, and prompting it will always return a valid instance of the model, or raise an exception if it fails to generate a valid instance after the maximum number of retries. Your docstring and field descriptions will also be visible to the model, so make sure to write good descriptions!
@@ -541,7 +587,7 @@ await generate_song("Come up with an all-time best K-hiphop song")
 
 
 
-> <code>Song(title='Eung Freestyle', genres=['K-HipHop', 'Rap', 'Hip-Hop'], duration=192.0)</code><br/>
+> <code>Song(title='Eternal Sunshine', genres=['Hip-hop', 'R&B', 'K-pop'], duration=240.0, language=<Language.KO: 'ko'>, has_lyrics=True)</code><br/>
 
 
 ## Misc.

@@ -27,7 +27,7 @@ class StructGPT(ChatGPT):
         @function_tool(
             name=tool_name,
             require_doc=False,
-            json_schema=struct.model_json_schema(),
+            schema=struct.model_json_schema(),
         )
         async def create(**kwargs):
             return struct(**kwargs)

@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Callable, Optional, AsyncIterator
+from typing import Callable, AsyncIterator
 
 from json_autocomplete import json_autocomplete
 
@@ -10,7 +10,7 @@ from ..api.openai import (
     ChatCompletion,
     ToolCall,
 )
-from ..tools import Tools, call_requested_function, call_function_preview
+from ..tools import Tools, ToolList, call_requested_function, call_function_preview
 from ..messages import MessageHistory, SimpleHistory, msg
 from .utils import atuple, format_event
 from .core import Assistant
@@ -24,8 +24,8 @@ class ChatGPT(Assistant):
 
     def __init__(
         self,
-        messages: Optional[MessageHistory] = None,
-        tools: Optional[Tools] = None,
+        messages: MessageHistory | None = None,
+        tools: Tools | list[Tools] | None = None,
         model: str = DEFAULT_MODEL,
     ):
         self.default_model = model
@@ -37,10 +37,10 @@ class ChatGPT(Assistant):
     async def __call__(
         self,
         prompt: str,
-        tools: Optional[Tools] = None,
-        model: Optional[str] = None,
+        tools: Tools | list[Tools] | None = None,
+        model: str | None = None,
         max_function_calls: int = MAX_FUNCTION_CALLS,
-        event_logger: Optional[Callable] = None,
+        event_logger: Callable | None = None,
         **openai_kwargs,
     ) -> str:
         """
@@ -70,8 +70,8 @@ class ChatGPT(Assistant):
     async def response_events(
         self,
         prompt: str,
-        tools: Optional[Tools] = None,
-        model: Optional[str] = None,
+        tools: Tools | list[Tools] | None = None,
+        model: str | None = None,
         max_function_calls: int = MAX_FUNCTION_CALLS,
         parallel_calls=True,
         **openai_kwargs,
@@ -82,6 +82,7 @@ class ChatGPT(Assistant):
         """
         model = model or self.default_model
         tools = tools or self.default_tools
+        tools = ToolList(*tools) if isinstance(tools, list) else tools
 
         yield self.ResponseStartEvent(
             prompt, tools, model, max_function_calls, openai_kwargs
@@ -141,7 +142,7 @@ class ChatGPT(Assistant):
     async def completion_events(
         self,
         call_index: int,
-        tools: Tools | None,
+        tools: Tools | list[Tools] | None,
         parallel_calls: bool,
         openai_args: dict,
     ) -> AsyncIterator[Assistant.Event]:
@@ -189,13 +190,17 @@ class ChatGPT(Assistant):
         yield self.CompletionEvent(completion=partial, call_index=call_index)
 
     async def tool_events(
-        self, tool_calls: list[ToolCall], tools: Tools, parallel_calls: bool
+        self,
+        tool_calls: list[ToolCall],
+        tools: Tools | list[Tools],
+        parallel_calls: bool,
     ) -> AsyncIterator[Assistant.Event]:
         """
         Generate events from a list of tool calls, yielding each tool call, executing them, and yielding the result. You should override this to customize the tool call handling, also defining your own events to yield.
         """
         yield self.ToolCallsEvent(tool_calls)
 
+        tools = ToolList(*tools) if isinstance(tools, list) else tools
         lookup = tools.lookup
 
         # awaitables for each tool call
@@ -223,6 +228,7 @@ class ChatGPT(Assistant):
         """
         yield self.PartialToolCallsEvent(tool_calls)
 
+        tools = ToolList(*tools) if isinstance(tools, list) else tools
         lookup_preview = tools.lookup_preview
 
         if not lookup_preview:
@@ -276,10 +282,10 @@ class GPT(ChatGPT):
     async def __call__(
         self,
         prompt: str,
-        tools: Optional[Tools] = None,
-        model: Optional[str] = None,
+        tools: Tools | list[Tools] | None = None,
+        model: str | None = None,
         max_function_calls: int = ChatGPT.MAX_FUNCTION_CALLS,
-        event_logger: Optional[Callable] = None,
+        event_logger: Callable | None = None,
         **openai_kwargs,
     ) -> str:
         """

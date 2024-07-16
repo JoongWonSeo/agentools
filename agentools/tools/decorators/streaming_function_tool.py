@@ -1,6 +1,9 @@
 import asyncio
 from typing import Callable
 
+from pydantic import BaseModel
+
+from ..types import JSONSchema
 from .function_tool import function_tool
 
 
@@ -38,7 +41,7 @@ def streaming_function_tool(
     *,
     name: str | None = None,
     require_doc: bool = True,
-    json_schema: dict,
+    schema: JSONSchema | type[BaseModel] | None = None,
     in_thread: bool | None = None,
     include_call_id: bool = False,
 ):
@@ -59,11 +62,14 @@ def streaming_function_tool(
         @function_tool(
             name=func_name,
             require_doc=require_doc,
-            json_schema=json_schema,
+            schema=schema,
             in_thread=in_thread,
             include_call_id=True,
         )
         async def function_final(call_id, **args):
+            # copy the docstring from the original function
+            function_final.__doc__ = func.__doc__
+
             task, stream = func.tasks[call_id]
 
             if include_call_id:
