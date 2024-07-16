@@ -59,8 +59,6 @@ def function_tool(
             # take the given pydantic model
             arg_validator = validator_from_pydantic(schema)
             arg_schema = [schema_to_openai_func(schema)]
-            # override the pydantic model title with the function name
-            arg_schema[0]["function"]["name"] = func_name  # fixme
         else:
             # parse the docstring and create a pydantic model as validator
             model = pydantic_from_doc(
@@ -70,6 +68,9 @@ def function_tool(
             )
             arg_validator = validator_from_pydantic(model)
             arg_schema = [schema_to_openai_func(model)]
+
+        # override the pydantic model title with the function name
+        arg_schema[0]["function"]["name"] = func_name
 
         # ========== Attach the tool attributes ========== #
         func.name = func_name
