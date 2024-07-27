@@ -10,8 +10,8 @@ from .utils import (
     ValidationError,
     awaitable,
     pydantic_from_doc,
+    set_description,
     validator_from_schema,
-    validator_from_pydantic,
     schema_to_openai_func,
 )
 
@@ -21,7 +21,7 @@ def function_tool(
     *,
     name: str | None = None,
     require_doc: bool = True,
-    schema: JSONSchema | type[BaseModel] | None = None,
+    schema: type[BaseModel] | JSONSchema | None = None,
     in_thread: bool | None = None,
     include_call_id: bool = False,
 ):
@@ -36,40 +36,51 @@ def function_tool(
 
     Args:
         name: The name that the model will see. If not provided, the function name will be used.
-        require_doc: Whether to require a docstring to be present for the function.
-        schema: A JSON schema/Pydantic model given to model and for validation. If not provided, the docstring will be used.
+        require_doc: Whether to use the docstring as schema for the function.
+        schema: A Pydantic model / JSON schema given to model and for validation. If not provided, the docstring will be used.
         in_thread: Whether to run the function in a separate thread, regardless of whether it is async or not.
         include_call_id: Whether to include the call_id in the function arguments.
     """
 
     def decorator(func):
+        nonlocal schema
+
         func_name = name or func.__name__
 
         # ========== Create a validator and schema ========== #
-        if isinstance(schema, dict):
-            # take the given json schema
-            schema_copy = deepcopy(schema)
-            arg_validator = validator_from_schema(
-                schema_copy,
-                name=func_name,
-                override_with_doc_from=func if require_doc else None,
-            )
-            arg_schema = [schema_to_openai_func(schema_copy)]
-        elif schema is not None and issubclass(schema, BaseModel):
-            # take the given pydantic model
-            arg_validator = validator_from_pydantic(schema)
-            arg_schema = [schema_to_openai_func(schema)]
-        else:
-            # parse the docstring and create a pydantic model as validator
+        if schema is None:
+            # docstring -> Pydantic model
             model = pydantic_from_doc(
                 func,
                 name=func_name,
                 require_doc=require_doc,
             )
-            arg_validator = validator_from_pydantic(model)
-            arg_schema = [schema_to_openai_func(model)]
+        # if pydantic model is provided, use it
+        elif isinstance(schema, type) and issubclass(schema, BaseModel):
+            model = schema
+        else:
+            model = None
 
-        # override the pydantic model title with the function name
+        if model:
+            # Pydantic model -> JSON schema
+            schema = model.model_json_schema()
+
+        if isinstance(schema, dict):
+            # JSON schema -> OpenAI schema, Validator
+            schema_copy = deepcopy(schema)
+            if require_doc:
+                set_description(schema_copy, func, override=False)
+            arg_validator = validator_from_schema(
+                schema_copy,
+                name=func_name,
+            )
+            arg_schema = [schema_to_openai_func(schema_copy)]
+        else:
+            raise ValueError(
+                "No schema could be created, please provide either a Pydantic model, a JSON schema, or a docstring with type hints."
+            )
+
+        # override the pydantic model/ schema title with the function name
         arg_schema[0]["function"]["name"] = func_name
 
         # ========== Attach the tool attributes ========== #

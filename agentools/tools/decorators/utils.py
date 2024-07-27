@@ -1,6 +1,7 @@
 import inspect
 import json
 from typing import Callable
+from typing_extensions import deprecated
 
 from docstring_parser import parse
 from pydantic import BaseModel, Field, create_model, ValidationError as PydanticValError
@@ -82,15 +83,9 @@ def pydantic_from_doc(
 def validator_from_schema(
     json_schema: dict,
     name: str | None = None,
-    override_with_doc_from: Callable | None = None,
 ) -> Callable:
     if name:
         json_schema["title"] = name
-    if override_with_doc_from:
-        doc = parse(inspect.getdoc(override_with_doc_from) or "")
-        json_schema["description"] = (
-            f"{doc.short_description or ''}\n{doc.long_description or ''}".strip()
-        )
 
     # Validate json against schema
     def validate_json(**state):
@@ -103,6 +98,7 @@ def validator_from_schema(
 
 
 # Pydantic model -> Pydantic validator function
+@deprecated("First convert pydantic to JSONSchema and use validator_from_schema")
 def validator_from_pydantic(model: type[BaseModel]) -> Callable:
     # validator function
     def validate_pydantic(**state):
@@ -119,6 +115,25 @@ def validator_from_pydantic(model: type[BaseModel]) -> Callable:
             raise ValidationError(err)
 
     return validate_pydantic
+
+
+# Set JSON schema description from function docstring
+def set_description(schema: dict, func: Callable, override: bool = False):
+    """
+    Set the description of the schema from the function docstring.
+
+    Args:
+        schema: JSON schema to set description for
+        func: function to get docstring from
+        override: whether to override the existing description, if False, empty docstrings will not override existing descriptions
+    """
+
+    doc = parse(inspect.getdoc(func) or "")
+    parsed_description = (
+        f"{doc.short_description or ''}\n{doc.long_description or ''}".strip()
+    )
+    if override or parsed_description:
+        schema["description"] = parsed_description
 
 
 # Pydantic/JSON Schema -> OpenAI function schema

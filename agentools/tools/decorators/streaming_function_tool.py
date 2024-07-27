@@ -41,7 +41,7 @@ def streaming_function_tool(
     *,
     name: str | None = None,
     require_doc: bool = True,
-    schema: JSONSchema | type[BaseModel] | None = None,
+    schema: type[BaseModel] | JSONSchema,
     in_thread: bool | None = None,
     include_call_id: bool = False,
 ):
@@ -51,7 +51,7 @@ def streaming_function_tool(
     Args:
         name: The name that the model will see. If not provided, the function name will be used.
         require_doc: Whether to require a docstring to be present for the function.
-        json_schema: A JSON schema given to model and for validation. If not provided, the docstring will be used.
+        schema: A Pydantic model / JSON schema given to model and for validation.
         in_thread: Whether to run the function in a separate thread, regardless of whether it is async or not.
         include_call_id: Whether to include the call_id in the function arguments.
     """
@@ -59,17 +59,7 @@ def streaming_function_tool(
     def decorator(func):
         func_name = name or func.__name__
 
-        @function_tool(
-            name=func_name,
-            require_doc=require_doc,
-            schema=schema,
-            in_thread=in_thread,
-            include_call_id=True,
-        )
         async def function_final(call_id, **args):
-            # copy the docstring from the original function
-            function_final.__doc__ = func.__doc__
-
             task, stream = func.tasks[call_id]
 
             if include_call_id:
@@ -82,6 +72,24 @@ def streaming_function_tool(
             await task  # wait for the task to finish
             del func.tasks[call_id]
             return task.result()
+
+        # copy the docstring from the original function
+        function_final.__doc__ = func.__doc__
+
+        # TODO: assert arg_stream is the only actual argument in the function
+        # then, we could let the user define the arguments in the docstring,
+        # as already possible in the `function_tool` decorator!
+        # BUT it's a bit questionable whether it's too hacky...
+
+        # decorate it AFTER copying the docstring, so that the docstring is not lost
+        function_final = function_tool(
+            function=function_final,
+            name=func_name,
+            require_doc=require_doc,
+            schema=schema,
+            in_thread=in_thread,
+            include_call_id=True,
+        )
 
         @function_final.preview
         async def function_preview(call_id, **args):
