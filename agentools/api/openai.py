@@ -20,29 +20,23 @@ from openai.types.chat.chat_completion_message_tool_call import (
 
 from .mocking import mock_response, mock_streaming_response, GLOBAL_RECORDINGS
 
-try:
-    default_groq_client = AsyncGroq()
-except Exception:
-    default_groq_client = None
-
-try:
-    default_openai_client = AsyncOpenAI()
-except Exception:
-    default_openai_client = None
+default_groq_client = None
+default_openai_client = None
 
 
-def create_default_async_client(model: str) -> bool:
+def get_default_async_client(model: str) -> bool:
+    global default_groq_client, default_openai_client
     if (
         model.startswith("llama")
         or model.startswith("mixtral")
         or model.startswith("gemma")
     ):
         if default_groq_client is None:
-            raise ValueError("Default Groq client could not be created.")
+            default_groq_client = AsyncGroq()
         return default_groq_client
     else:
         if default_openai_client is None:
-            raise ValueError("Default OpenAI client could not be created.")
+            default_openai_client = AsyncOpenAI()
         return default_openai_client
 
 
@@ -85,7 +79,7 @@ async def openai_chat(client: AsyncOpenAI | AsyncGroq | None = None, **openai_kw
         gen = await replay_model.replay()
 
     else:
-        client = client or create_default_async_client(openai_kwargs["model"])
+        client = client or get_default_async_client(openai_kwargs["model"])
         gen = await client.chat.completions.create(**openai_kwargs)
 
     # Record the response if recording
