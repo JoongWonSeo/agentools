@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass
-from typing import Optional, AsyncIterator
+from typing import Callable, AsyncIterator, TypeVar
 
 from pydantic import BaseModel
 
@@ -12,27 +12,35 @@ from .chatgpt import ChatGPT
 from .utils import atuple, format_event
 
 
+S = TypeVar("S", bound=BaseModel)
+
+
 class StructGPT(ChatGPT):
     @dataclass
     class StructCreatedEvent(Assistant.Event):
-        result: BaseModel
+        result: S
 
     @dataclass
     class StructFailedEvent(Assistant.Event):
         result: str
 
     def __init__(
-        self, struct: BaseModel, model: str = "gpt-3.5-turbo", tool_name: str = None
+        self,
+        struct: type[S],
+        model: str = "gpt-3.5-turbo",
+        tool_name: str = None,
+        on_preview: Callable | None = None,
     ):
         @function_tool(
             name=tool_name,
             require_doc=False,
-            schema=struct.model_json_schema(),
+            schema=struct,
         )
-        async def create(**kwargs):
+        async def create(**kwargs) -> S:
             return struct(**kwargs)
 
-        # TODO: define preview function for struct
+        # wrap the preview function to register it to the tool
+        self.on_preview = create.preview(on_preview) if on_preview else None
 
         super().__init__(SimpleHistory(), tools=create, model=model)
 
@@ -42,10 +50,10 @@ class StructGPT(ChatGPT):
         self,
         prompt: str,
         max_attempts: int = 5,
-        model: Optional[str] = None,
-        event_logger: Optional[callable] = None,
+        model: str | None = None,
+        event_logger: Callable | None = None,
         **openai_kwargs,
-    ) -> BaseModel:
+    ) -> S:
         await self.messages.reset()
 
         async for event in self.response_events(
@@ -56,6 +64,7 @@ class StructGPT(ChatGPT):
                 "type": "function",
                 "function": {"name": self.default_tools.name},
             },
+            stream=True if self.on_preview else False,
             **openai_kwargs,
         ):
             if event_logger:
