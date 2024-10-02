@@ -1,8 +1,10 @@
 import asyncio
 from dataclasses import dataclass
+import json
 from typing import Callable, AsyncIterator, TypeVar
 
 from pydantic import BaseModel
+from json_autocomplete import json_autocomplete
 
 from ..api import ToolCall
 from ..tools import Tools, function_tool, call_requested_function
@@ -78,6 +80,55 @@ class StructGPT(ChatGPT):
                 case self.StructFailedEvent():
                     # print(f"[Struct Failed]: {event.result}", flush=True)
                     pass
+
+                case self.MaxCallsExceededEvent():
+                    raise Exception("Max attempts exceeded")
+
+    async def stream_json(
+        self,
+        prompt: str,
+        max_attempts: int = 5,
+        model: str | None = None,
+        event_logger: Callable | None = None,
+        **openai_kwargs,
+    ):
+        """
+        Stream the struct creation process, yielding each partial json result.
+        """
+        await self.messages.reset()
+
+        async for event in self.response_events(
+            prompt,
+            model=model,
+            max_function_calls=max_attempts,
+            tool_choice={
+                "type": "function",
+                "function": {"name": self.default_tools.name},
+            },
+            stream=True,
+            **openai_kwargs,
+        ):
+            if event_logger:
+                event_logger(format_event(event))
+
+            match event:
+                case self.PartialToolCallsEvent():
+                    yield event.tool_calls[0].function.arguments
+                    try:
+                        autocompleted = json_autocomplete(
+                            event.tool_calls[0].function.arguments
+                        )
+                        args = json.loads(autocompleted)
+                        yield args
+                    except Exception:
+                        continue
+
+                # This handler is not necessary, because the last event will always be the full json
+                case self.StructCreatedEvent():
+                    return
+
+                case self.StructFailedEvent():
+                    raise Exception("Struct creation failed")
 
                 case self.MaxCallsExceededEvent():
                     raise Exception("Max attempts exceeded")
