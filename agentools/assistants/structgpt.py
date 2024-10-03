@@ -91,7 +91,7 @@ class StructGPT(ChatGPT):
         model: str | None = None,
         event_logger: Callable | None = None,
         **openai_kwargs,
-    ):
+    ) -> AsyncIterator[dict]:
         """
         Stream the struct creation process, yielding each partial json result.
         """
@@ -113,13 +113,13 @@ class StructGPT(ChatGPT):
 
             match event:
                 case self.PartialToolCallsEvent():
-                    yield event.tool_calls[0].function.arguments
                     try:
                         autocompleted = json_autocomplete(
                             event.tool_calls[0].function.arguments
                         )
                         args = json.loads(autocompleted)
-                        yield args
+                        if not args:  # don't yield null/empty dict/empty list yet
+                            yield args
                     except Exception:
                         continue
 
