@@ -118,7 +118,7 @@ class StructGPT(ChatGPT):
                             event.tool_calls[0].function.arguments
                         )
                         args = json.loads(autocompleted)
-                        if not args:  # don't yield null/empty dict/empty list yet
+                        if args:  # don't yield null/empty dict/empty list yet
                             yield args
                     except Exception:
                         continue
