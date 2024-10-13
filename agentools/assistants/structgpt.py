@@ -1,7 +1,7 @@
 import asyncio
 from dataclasses import dataclass
 import json
-from typing import Callable, AsyncIterator, TypeVar
+from typing import Callable, AsyncIterator, Generic, TypeVar
 
 from pydantic import BaseModel
 from json_autocomplete import json_autocomplete
@@ -17,9 +17,9 @@ from .utils import atuple, format_event
 S = TypeVar("S", bound=BaseModel)
 
 
-class StructGPT(ChatGPT):
+class StructGPT(ChatGPT, Generic[S]):
     @dataclass
-    class StructCreatedEvent(Assistant.Event):
+    class StructCreatedEvent(Assistant.Event, Generic[S]):
         result: S
 
     @dataclass

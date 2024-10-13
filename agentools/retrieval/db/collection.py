@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TypeVar
+from typing import Generic, TypeVar
 from uuid import uuid4
 from pathlib import Path
 
@@ -16,7 +16,7 @@ from .data import EmbeddableData
 D = TypeVar("D", bound=EmbeddableData)
 
 
-class EmbeddableDataCollection:
+class EmbeddableDataCollection(Generic[D]):
     """
     A vector database that represents a collection of a specific EmbeddableData model.
     """
@@ -164,5 +164,5 @@ class EmbeddableDataCollection:
             )
         for field_name in self.field_embedder:
             field = self.data_model.model_fields[field_name]
-            if not isinstance(field.annotation, str):
+            if field.annotation is not str:
                 raise TypeError(f"Vectorized field {field_name} must be of type str.")
