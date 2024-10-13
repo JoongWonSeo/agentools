@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Type
+from typing import TypeVar
 from uuid import uuid4
 from pathlib import Path
 
@@ -11,6 +11,9 @@ from qdrant_client.http.models import (
 )
 
 from .data import EmbeddableData
+
+
+D = TypeVar("D", bound=EmbeddableData)
 
 
 class EmbeddableDataCollection:
@@ -27,9 +30,7 @@ class EmbeddableDataCollection:
             path=Path("storage", "qdrant")
         )
 
-    def __init__(
-        self, name: str, data_model: Type[EmbeddableData], client=None, validate=True
-    ):
+    def __init__(self, name: str, data_model: type[D], client=None, validate=True):
         """Instantiate a collection. If it doesn't exist, it creates a new one."""
 
         self.name = name
@@ -68,7 +69,7 @@ class EmbeddableDataCollection:
     async def destroy(self):
         await self.client.delete_collection(self.name)
 
-    async def add(self, data: list[EmbeddableData], ids: list[str | int] = None):
+    async def add(self, data: list[D], ids: list[str | int] = None):
         if not ids:
             ids = [str(uuid4()) for _ in range(len(data))]
 
@@ -86,7 +87,7 @@ class EmbeddableDataCollection:
         )
         assert operation_info.status == "completed"
 
-    async def overwrite(self, data: EmbeddableData, id: str | int):
+    async def overwrite(self, data: D, id: str | int):
         operation_info = await self.client.overwrite_payload(
             collection_name=self.name, points=[id], payload=data.to_payload(), wait=True
         )
@@ -94,7 +95,7 @@ class EmbeddableDataCollection:
 
     async def query(
         self, top: int = 10, filter: Filter = None, **query_args
-    ) -> list[tuple[float, EmbeddableData]]:
+    ) -> list[tuple[float, D]]:
         """
         Query using a keyword argument of desired field name of EmbeddableData and its value.
         Returns a list of (score, EmbeddableData) tuples.
@@ -112,7 +113,7 @@ class EmbeddableDataCollection:
         )
         return [(r.score, self.data_model(**r.payload)) for r in search_result]
 
-    async def retrieve(self, ids: list[str | int]) -> list[EmbeddableData]:
+    async def retrieve(self, ids: list[str | int]) -> list[D]:
         """
         Retrieve EmbeddableData by id.
         """
@@ -163,5 +164,5 @@ class EmbeddableDataCollection:
             )
         for field_name in self.field_embedder:
             field = self.data_model.model_fields[field_name]
-            if field.annotation != str:
+            if not isinstance(field.annotation, str):
                 raise TypeError(f"Vectorized field {field_name} must be of type str.")
