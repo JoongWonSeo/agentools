@@ -1,14 +1,14 @@
 import asyncio
 from dataclasses import dataclass
 import json
-from typing import Callable, AsyncIterator, Generic, TypeVar
+from typing import Callable, AsyncIterator, Generic, Iterable, TypeVar
 
 from pydantic import BaseModel
 from json_autocomplete import json_autocomplete
 
 from ..api import ToolCall
 from ..tools import Tools, function_tool, call_requested_function
-from ..messages import SimpleHistory, msg
+from ..messages import MessageHistory, msg, Message, Content
 from .core import Assistant
 from .chatgpt import ChatGPT
 from .utils import atuple, format_event
@@ -18,6 +18,11 @@ S = TypeVar("S", bound=BaseModel)
 
 
 class StructGPT(ChatGPT, Generic[S]):
+    """Use GPT to create a structure S from a prompt"""
+
+    DEFAULT_MODEL = "gpt-4o-mini"
+    DEFAULT_ATTEMPTS = 5
+
     @dataclass
     class StructCreatedEvent(Assistant.Event, Generic[S]):
         result: S
@@ -29,9 +34,10 @@ class StructGPT(ChatGPT, Generic[S]):
     def __init__(
         self,
         struct: type[S],
-        model: str = "gpt-3.5-turbo",
+        model: str = DEFAULT_MODEL,
         tool_name: str = None,
         on_preview: Callable | None = None,
+        messages: MessageHistory | None = None,
     ):
         @function_tool(
             name=tool_name,
@@ -44,14 +50,14 @@ class StructGPT(ChatGPT, Generic[S]):
         # wrap the preview function to register it to the tool
         self.on_preview = create.preview(on_preview) if on_preview else None
 
-        super().__init__(SimpleHistory(), tools=create, model=model)
+        super().__init__(messages, tools=create, model=model)
 
         self.struct = struct
 
     async def __call__(
         self,
-        prompt: str,
-        max_attempts: int = 5,
+        prompt: str | Iterable[Content] | Message | None,
+        max_attempts: int = DEFAULT_ATTEMPTS,
         model: str | None = None,
         event_logger: Callable | None = None,
         **openai_kwargs,
@@ -86,8 +92,8 @@ class StructGPT(ChatGPT, Generic[S]):
 
     async def stream_json(
         self,
-        prompt: str,
-        max_attempts: int = 5,
+        prompt: str | Iterable[Content] | Message | None,
+        max_attempts: int = DEFAULT_ATTEMPTS,
         model: str | None = None,
         event_logger: Callable | None = None,
         **openai_kwargs,

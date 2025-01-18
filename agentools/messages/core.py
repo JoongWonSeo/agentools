@@ -1,39 +1,95 @@
-from typing import overload
+from typing import Iterable, Literal, Unpack, overload
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
 from pydantic import BaseModel
 from openai.types.chat import ChatCompletionMessage
+from openai.types.chat.chat_completion_message_param import (
+    ChatCompletionMessageParam as Message,
+)
+from openai.types.chat.chat_completion_developer_message_param import (
+    ChatCompletionDeveloperMessageParam as DeveloperMessage,
+)
+from openai.types.chat.chat_completion_system_message_param import (
+    ChatCompletionSystemMessageParam as SystemMessage,
+)
+from openai.types.chat.chat_completion_user_message_param import (
+    ChatCompletionUserMessageParam as UserMessage,
+)
+from openai.types.chat.chat_completion_assistant_message_param import (
+    ChatCompletionAssistantMessageParam as AssistantMessage,
+)
+from openai.types.chat.chat_completion_tool_message_param import (
+    ChatCompletionToolMessageParam as ToolMessage,
+)
+
+from .content import Content, TextContent
 
 
 @overload
-def msg(*, system: str) -> dict[str, str]: ...
-
-
-@overload
-def msg(*, user: str) -> dict[str, str]: ...
-
-
-@overload
-def msg(*, assistant: str) -> dict[str, str]: ...
-
-
-@overload
-def msg(*, tool: str, tool_call_id: str) -> dict[str, str]: ...
-
-
-def msg(*, system=None, user=None, assistant=None, tool=None, tool_call_id=None):
+def msg(*, developer: str | Iterable[TextContent]) -> DeveloperMessage:
     """
-    Define a system/user/assistant/tool message by keyword arguments.
+    Define a developer message by keyword argument.
+
+    Note that the developer message replaces the system message in o1 and newer.
+    """
+    ...
+
+
+@overload
+def msg(*, system: str | Iterable[TextContent]) -> SystemMessage:
+    """Define a system message by keyword argument"""
+    ...
+
+
+@overload
+def msg(*, user: str | Iterable[Content]) -> UserMessage:
+    """Define a user message by keyword argument"""
+    ...
+
+
+@overload
+def msg(*, assistant: str) -> AssistantMessage:
+    """Define an assistant message by keyword argument"""
+    ...
+
+
+@overload
+def msg(*, tool: str, tool_call_id: str) -> ToolMessage:
+    """Define a tool message (tool result) by keyword argument"""
+    ...
+
+
+@overload
+def msg(**kwargs: Unpack[Message]) -> Message:
+    """Define a message by keyword arguments"""
+
+
+def msg(
+    *,
+    developer=None,
+    system=None,
+    user=None,
+    assistant=None,
+    tool=None,
+    tool_call_id=None,
+    role: Literal["developer", "system", "user", "assistant", "tool"] | None = None,
+    **kwargs,
+) -> Message:
+    """
+    Define a developer/system/user/assistant/tool message by keyword arguments.
     """
     assert (
-        sum(arg is not None for arg in [system, user, assistant, tool]) == 1
-    ), "Only one of system/user/assistant/tool should be specified"
+        sum(arg is not None for arg in [developer, system, user, assistant, tool, role])
+        == 1
+    ), "Only one of developer/system/user/assistant/tool/role should be specified"
     assert (
         tool is None or tool_call_id is not None
     ), "tool_call_id must be specified if tool is specified"
 
-    if system is not None:
+    if developer is not None:
+        return {"role": "developer", "content": developer}
+    elif system is not None:
         return {"role": "system", "content": system}
     elif user is not None:
         return {"role": "user", "content": user}
@@ -41,6 +97,13 @@ def msg(*, system=None, user=None, assistant=None, tool=None, tool_call_id=None)
         return {"role": "assistant", "content": assistant}
     elif tool is not None:
         return {"role": "tool", "content": tool, "tool_call_id": tool_call_id}
+    elif role is not None:
+        # TODO: runtime validation would be great, but TypeAdapter currently doesn't support nested TypedDict validation
+        # m = {"role": role, **kwargs}
+        # TypeAdapter(Message).validate_python(m)
+        # return m
+
+        return {"role": role, **kwargs}
 
 
 class MessageHistory(ABC):

@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Callable, AsyncIterator
+from typing import Callable, AsyncIterator, Iterable
 
 from json_autocomplete import json_autocomplete
 
@@ -11,7 +11,7 @@ from ..api.openai import (
     ToolCall,
 )
 from ..tools import Tools, ToolList, call_requested_function, call_function_preview
-from ..messages import MessageHistory, SimpleHistory, msg
+from ..messages import MessageHistory, SimpleHistory, msg, Message, Content
 from .utils import atuple, format_event
 from .core import Assistant
 
@@ -19,8 +19,8 @@ from .core import Assistant
 class ChatGPT(Assistant):
     """ChatGPT with default model and toolkit"""
 
-    DEFAULT_MODEL = "gpt-3.5-turbo"
-    MAX_FUNCTION_CALLS = 100
+    DEFAULT_MODEL = "gpt-4o-mini"
+    MAX_FUNCTION_CALLS = 10
 
     def __init__(
         self,
@@ -36,7 +36,7 @@ class ChatGPT(Assistant):
     # ========== Event Handlers ========== #
     async def __call__(
         self,
-        prompt: str,
+        prompt: str | Iterable[Content] | Message | None,
         tools: Tools | list[Tools] | None = None,
         model: str | None = None,
         max_function_calls: int = MAX_FUNCTION_CALLS,
@@ -69,7 +69,7 @@ class ChatGPT(Assistant):
     # ========== Event Generators ========== #
     async def response_events(
         self,
-        prompt: str,
+        prompt: str | Iterable[Content] | Message | None,
         tools: Tools | list[Tools] | None = None,
         model: str | None = None,
         max_function_calls: int = MAX_FUNCTION_CALLS,
@@ -79,6 +79,14 @@ class ChatGPT(Assistant):
         """
         Generate events from a single user prompt, yielding each message and tool call and everything else as it is received.
         This is the overall generalized form, and you would likely only override the smaller *_events() generators to customize each aspect instead.
+
+        Args:
+            prompt: Either the user prompt as string/list of content, or a dict Message
+            tools: override the default tools
+            model: override the default model
+            max_function_calls: maximum number of function calls
+            parallel_calls: whether to run tool calls in parallel
+            **openai_kwargs: additional arguments to pass to the OpenAI API
         """
         model = model or self.default_model
         tools = tools or self.default_tools
@@ -87,7 +95,12 @@ class ChatGPT(Assistant):
         yield self.ResponseStartEvent(
             prompt, tools, model, max_function_calls, openai_kwargs
         )
-        await self.messages.append(msg(user=prompt))
+
+        # add the prompt to the message history
+        if prompt is not None:
+            # non-dict prompt is assumed to be a user message
+            m = prompt if isinstance(prompt, dict) else msg(user=prompt)
+            await self.messages.append(m)
 
         # prompt the assistant and let it use the tools
         for call_index in range(max_function_calls):
@@ -281,7 +294,7 @@ class GPT(ChatGPT):
 
     async def __call__(
         self,
-        prompt: str,
+        prompt: str | Iterable[Content] | Message | None,
         tools: Tools | list[Tools] | None = None,
         model: str | None = None,
         max_function_calls: int = ChatGPT.MAX_FUNCTION_CALLS,

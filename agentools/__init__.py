@@ -38,6 +38,20 @@ __all__ = [
     "msg",
     "MessageHistory",
     "SimpleHistory",
+    "Message",
+    "DeveloperMessage",
+    "SystemMessage",
+    "UserMessage",
+    "AssistantMessage",
+    "ToolMessage",
+    # contents,
+    "content",
+    "Content",
+    "TextContent",
+    "ImageContent",
+    "ImageURL",
+    "InputAudioContent",
+    "InputAudio",
     # retrieval
     "EmbeddableDataCollection",
     "EmbeddableData",
@@ -70,7 +84,24 @@ from .api import (
     GLOBAL_RECORDINGS,
 )
 from .assistants import Assistant, ChatGPT, GPT, StructGPT
-from .messages import msg, MessageHistory, SimpleHistory
+from .messages import (
+    msg,
+    MessageHistory,
+    SimpleHistory,
+    Message,
+    DeveloperMessage,
+    SystemMessage,
+    UserMessage,
+    AssistantMessage,
+    ToolMessage,
+    content,
+    Content,
+    TextContent,
+    ImageContent,
+    ImageURL,
+    InputAudioContent,
+    InputAudio,
+)
 from .retrieval import (
     EmbeddableDataCollection,
     EmbeddableData,
