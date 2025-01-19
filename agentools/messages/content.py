@@ -51,7 +51,7 @@ def content(*, image_url: ImageURL) -> ImageContent:
 
 @overload
 def content(
-    *, input_audio: str | bytes, format: Literal["wav", "mp3"]
+    *, input_audio: str | bytes | bytearray | memoryview, format: Literal["wav", "mp3"]
 ) -> InputAudioContent:
     """OpenAI audio content part: {"type": "input_audio", "input_audio": ...}"""
     ...
@@ -104,10 +104,10 @@ def content(
             return {"type": "input_audio", "input_audio": input_audio}
         else:
             assert isinstance(
-                input_audio, (str, bytes)
-            ), "input_audio should be str or bytes"
+                input_audio, (str, bytes, bytearray, memoryview)
+            ), "input_audio should be str or byte-like"
             assert format is not None, "Audio format should be provided"
-            if isinstance(input_audio, bytes):
+            if not isinstance(input_audio, str):
                 input_audio = base64.b64encode(input_audio).decode("utf-8")
             return {
                 "type": "input_audio",
