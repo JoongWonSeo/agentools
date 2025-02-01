@@ -37,6 +37,7 @@ class ChatGPT(Assistant):
     async def __call__(
         self,
         prompt: str | Iterable[Content] | Message | None,
+        messages: MessageHistory | None = None,
         tools: Tools | list[Tools] | None = None,
         model: str | None = None,
         max_function_calls: int = MAX_FUNCTION_CALLS,
@@ -47,17 +48,25 @@ class ChatGPT(Assistant):
         Prompt the assistant, returning its final response.
 
         Args:
-            prompt: the user's prompt
-            tools: override the default tools
-            model: override the default model
-            max_function_calls: maximum number of function calls
-            **openai_kwargs: additional arguments to pass to the OpenAI API
+            prompt: The user's prompt
+            messages: The message history to use, defaults to self.messages
+            tools: Override the default tools
+            model: Override the default model
+            max_function_calls: Maximum number of function calls
+            **openai_kwargs: Additional arguments to pass to the OpenAI API
 
         Returns:
-            the assistant's final response
+            The assistant's final response
         """
-        async for event in self.response_events(
-            prompt, tools, model, max_function_calls, **openai_kwargs
+        async for event in self.new_message_handler(
+            self.response_events(
+                prompt,
+                messages,
+                tools,
+                model,
+                max_function_calls,
+                **openai_kwargs,
+            )
         ):
             if event_logger:
                 event_logger(format_event(event))
@@ -66,10 +75,31 @@ class ChatGPT(Assistant):
                 case self.ResponseEndEvent():
                     return event.content
 
+    async def new_message_handler(
+        self, response_events: AsyncIterator[Assistant.Event]
+    ):
+        """
+        Takes care of automatically appending new messages to the message history
+        """
+        async for e in response_events:
+            # handle events that require appending to the message history
+            match e:
+                # full assistant response message arrived
+                case self.FullMessageEvent():
+                    await self.messages.append(e.message)
+                # full tool result message arrived
+                case self.ToolResultEvent():
+                    await self.messages.append(
+                        msg(tool=e.result, tool_call_id=e.tool_call.id)
+                    )
+            # transparently yield the event
+            yield e
+
     # ========== Event Generators ========== #
     async def response_events(
         self,
         prompt: str | Iterable[Content] | Message | None,
+        messages: MessageHistory | None = None,
         tools: Tools | list[Tools] | None = None,
         model: str | None = None,
         max_function_calls: int = MAX_FUNCTION_CALLS,
@@ -82,12 +112,14 @@ class ChatGPT(Assistant):
 
         Args:
             prompt: Either the user prompt as string/list of content, or a dict Message
-            tools: override the default tools
-            model: override the default model
-            max_function_calls: maximum number of function calls
-            parallel_calls: whether to run tool calls in parallel
-            **openai_kwargs: additional arguments to pass to the OpenAI API
+            messages: The message history to use, defaults to self.messages
+            tools: Override the default tools
+            model: Override the default model
+            max_function_calls: Maximum number of function calls
+            parallel_calls: Whether to run tool calls in parallel
+            **openai_kwargs: Additional arguments to pass to the OpenAI API
         """
+        messages: MessageHistory = messages or self.messages
         model = model or self.default_model
         tools = tools or self.default_tools
         tools = ToolList(*tools) if isinstance(tools, list) else tools
@@ -100,7 +132,7 @@ class ChatGPT(Assistant):
         if prompt is not None:
             # non-dict prompt is assumed to be a user message
             m = prompt if isinstance(prompt, dict) else msg(user=prompt)
-            await self.messages.append(m)
+            await messages.append(m)
 
         # prompt the assistant and let it use the tools
         for call_index in range(max_function_calls):
@@ -112,7 +144,7 @@ class ChatGPT(Assistant):
                 tools,
                 parallel_calls,
                 openai_args=dict(
-                    messages=self.messages.history,
+                    messages=messages.history,
                     tools=tools.schema if tools else None,
                     model=model,
                     **openai_kwargs,
@@ -132,7 +164,6 @@ class ChatGPT(Assistant):
             # select the message if there are multiple choices
             choice_index = 0
             message = completion.choices[choice_index].message
-            await self.messages.append(message)
             yield self.FullMessageEvent(message, choice_index=choice_index)
 
             if message.content is not None:
@@ -230,7 +261,6 @@ class ChatGPT(Assistant):
         for completed in calls:
             i, call, result = await completed
             result = str(result)  # stringify the result
-            await self.messages.append(msg(tool=result, tool_call_id=call.id))
             yield self.ToolResultEvent(result, call, i)
 
     async def partial_tool_events(
@@ -295,6 +325,7 @@ class GPT(ChatGPT):
     async def __call__(
         self,
         prompt: str | Iterable[Content] | Message | None,
+        messages: MessageHistory | None = None,
         tools: Tools | list[Tools] | None = None,
         model: str | None = None,
         max_function_calls: int = ChatGPT.MAX_FUNCTION_CALLS,
@@ -305,22 +336,24 @@ class GPT(ChatGPT):
         Prompt the assistant, returning its final response.
 
         Args:
-            prompt: the user's prompt
-            tools: override the default tools
-            model: override the default model
-            max_function_calls: maximum number of function calls
-            **openai_kwargs: additional arguments to pass to the OpenAI API
+            prompt: The user's prompt
+            messages: The message history to use, defaults to self.messages
+            tools: Override the default tools
+            model: Override the default model
+            max_function_calls: Maximum number of function calls
+            **openai_kwargs: Additional arguments to pass to the OpenAI API
 
         Returns:
-            the assistant's final response
+            The assistant's final response
         """
+        messages: MessageHistory = messages or self.messages
         async for event in self.response_events(
-            prompt, tools, model, max_function_calls, **openai_kwargs
+            prompt, messages, tools, model, max_function_calls, **openai_kwargs
         ):
             if event_logger:
                 event_logger(format_event(event))
 
             match event:
                 case self.ResponseEndEvent():
-                    await self.messages.reset()
+                    await messages.reset()
                     return event.content
