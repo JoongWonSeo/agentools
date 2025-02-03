@@ -1,17 +1,15 @@
-import asyncio
 from dataclasses import dataclass
 import json
-from typing import Callable, AsyncIterator, Generic, Iterable, TypeVar
+from typing import Callable, AsyncIterator, Generic, Iterable, TypeVar, override
 
 from pydantic import BaseModel
 from json_autocomplete import json_autocomplete
 
-from ..api import ToolCall
-from ..tools import Tools, function_tool, call_requested_function
-from ..messages import MessageHistory, msg, Message, Content
+from ..tools import function_tool
+from ..messages import MessageHistory, Message, Content
 from .core import Assistant
 from .chatgpt import ChatGPT
-from .utils import atuple, format_event
+from .utils import format_event
 
 
 S = TypeVar("S", bound=BaseModel)
@@ -64,7 +62,7 @@ class StructGPT(ChatGPT, Generic[S]):
     ) -> S:
         await self.messages.reset()
 
-        async for event in self.new_message_handler(
+        async for event in self.event_adapter(
             self.response_events(
                 prompt,
                 model=model,
@@ -105,16 +103,18 @@ class StructGPT(ChatGPT, Generic[S]):
         """
         await self.messages.reset()
 
-        async for event in self.response_events(
-            prompt,
-            model=model,
-            max_function_calls=max_attempts,
-            tool_choice={
-                "type": "function",
-                "function": {"name": self.default_tools.name},
-            },
-            stream=True,
-            **openai_kwargs,
+        async for event in self.event_adapter(
+            self.response_events(
+                prompt,
+                model=model,
+                max_function_calls=max_attempts,
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": self.default_tools.name},
+                },
+                stream=True,
+                **openai_kwargs,
+            )
         ):
             if event_logger:
                 event_logger(format_event(event))
@@ -141,37 +141,28 @@ class StructGPT(ChatGPT, Generic[S]):
                 case self.MaxCallsExceededEvent():
                     raise Exception("Max attempts exceeded")
 
-    async def tool_events(
-        self, tool_calls: list[ToolCall], tools: Tools, parallel_calls: bool
-    ) -> AsyncIterator[Assistant.Event]:
+    # ========== Event Adapters ========== #
+    @override
+    async def event_adapter(
+        self,
+        response_events: AsyncIterator[Assistant.Event],
+        messages: MessageHistory = None,
+    ):
         """
-        Generate events from a list of tool calls, yielding each tool call, executing them, and yielding the result. You should override this to customize the tool call handling, also defining your own events to yield.
+        Converts the tool result event to a StructCreatedEvent or StructFailedEvent.
         """
-        yield self.ToolCallsEvent(tool_calls)
 
-        lookup = tools.lookup
+        async for e in super().event_adapter(response_events, messages):
+            match e:
+                # full tool result message arrived
+                case self.ToolResultEvent():
+                    # if the result successfully executed, yield it
+                    if type(e.result) is self.struct:
+                        yield self.StructCreatedEvent(e.result)
+                        # override the result, although it wouldn't matter
+                        e.result = "Success"
+                    else:
+                        yield self.StructFailedEvent(e.result)
 
-        # awaitables for each tool call
-        calls = []
-        for i, call in enumerate(tool_calls):
-            call_id = call.id
-            name = call.function.name
-            args = call.function.arguments
-            task = atuple(i, call, call_requested_function(name, args, lookup, call_id))
-            calls.append(task)
-
-        # handle each call results as they come in (or in order)
-        calls = asyncio.as_completed(calls) if parallel_calls else calls
-        for completed in calls:
-            i, call, result = await completed
-
-            # if the result successfully executed, yield it
-            if type(result) is self.struct:
-                yield self.StructCreatedEvent(result)
-                result = "Success"
-            else:
-                yield self.StructFailedEvent(result)
-                result = str(result)
-
-            await self.messages.append(msg(tool=result, tool_call_id=call.id))
-            yield self.ToolResultEvent(result, call, i)
+            # transparently yield the event
+            yield e

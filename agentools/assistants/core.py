@@ -72,7 +72,7 @@ class Assistant(ABC):
     class ToolResultEvent(Event):
         """Result of a tool call"""
 
-        result: str
+        result: Any
         tool_call: ToolCall
         index: int = 0  # index of this tool call in the tool_calls list
 

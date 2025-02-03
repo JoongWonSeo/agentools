@@ -58,7 +58,7 @@ class ChatGPT(Assistant):
         Returns:
             The assistant's final response
         """
-        async for event in self.new_message_handler(
+        async for event in self.event_adapter(
             self.response_events(
                 prompt,
                 messages,
@@ -66,7 +66,8 @@ class ChatGPT(Assistant):
                 model,
                 max_function_calls,
                 **openai_kwargs,
-            )
+            ),
+            messages,
         ):
             if event_logger:
                 event_logger(format_event(event))
@@ -75,23 +76,27 @@ class ChatGPT(Assistant):
                 case self.ResponseEndEvent():
                     return event.content
 
-    async def new_message_handler(
-        self, response_events: AsyncIterator[Assistant.Event]
+    # ========== Event Adapters ========== #
+    async def event_adapter(
+        self,
+        response_events: AsyncIterator[Assistant.Event],
+        messages: MessageHistory = None,
     ):
         """
         Takes care of automatically appending new messages to the message history
         """
+        messages = messages or self.messages
+
         async for e in response_events:
             # handle events that require appending to the message history
             match e:
                 # full assistant response message arrived
                 case self.FullMessageEvent():
-                    await self.messages.append(e.message)
+                    await messages.append(e.message)
                 # full tool result message arrived
                 case self.ToolResultEvent():
-                    await self.messages.append(
-                        msg(tool=e.result, tool_call_id=e.tool_call.id)
-                    )
+                    result = str(e.result)  # stringify the result
+                    await messages.append(msg(tool=result, tool_call_id=e.tool_call.id))
             # transparently yield the event
             yield e
 
@@ -260,7 +265,6 @@ class ChatGPT(Assistant):
         calls = asyncio.as_completed(calls) if parallel_calls else calls
         for completed in calls:
             i, call, result = await completed
-            result = str(result)  # stringify the result
             yield self.ToolResultEvent(result, call, i)
 
     async def partial_tool_events(
