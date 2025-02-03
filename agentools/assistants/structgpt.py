@@ -64,16 +64,18 @@ class StructGPT(ChatGPT, Generic[S]):
     ) -> S:
         await self.messages.reset()
 
-        async for event in self.response_events(
-            prompt,
-            model=model,
-            max_function_calls=max_attempts,
-            tool_choice={
-                "type": "function",
-                "function": {"name": self.default_tools.name},
-            },
-            stream=True if self.on_preview else False,
-            **openai_kwargs,
+        async for event in self.new_message_handler(
+            self.response_events(
+                prompt,
+                model=model,
+                max_function_calls=max_attempts,
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": self.default_tools.name},
+                },
+                stream=True if self.on_preview else False,
+                **openai_kwargs,
+            )
         ):
             if event_logger:
                 event_logger(format_event(event))
