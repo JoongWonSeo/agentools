@@ -52,6 +52,7 @@ __all__ = [
     "ImageURL",
     "InputAudioContent",
     "InputAudio",
+    "format_contents",
     # retrieval
     "EmbeddableDataCollection",
     "EmbeddableData",
@@ -101,6 +102,7 @@ from .messages import (
     ImageURL,
     InputAudioContent,
     InputAudio,
+    format_contents,
 )
 from .retrieval import (
     EmbeddableDataCollection,

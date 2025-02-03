@@ -15,6 +15,7 @@ __all__ = [
     "ImageURL",
     "InputAudioContent",
     "InputAudio",
+    "format_contents",
 ]
 
 from .core import (
@@ -37,4 +38,5 @@ from .content import (
     ImageURL,
     InputAudioContent,
     InputAudio,
+    format_contents,
 )
