@@ -55,17 +55,18 @@ def function_tool(
                 name=func_name,
                 require_doc=require_doc,
             )
-        # if pydantic model is provided, use it
         elif isinstance(schema, type) and issubclass(schema, BaseModel):
+            # Pydantic model is provided
             model = schema
         else:
+            # JSON schema is provided
             model = None
 
         if model:
-            # Pydantic model -> JSON schema
-            schema = model.model_json_schema()
-
-        if isinstance(schema, dict):
+            # Pydantic model -> OpenAI schema, Validator
+            arg_validator = validator_from_schema(model.model_json_schema())
+            arg_schema = [schema_to_openai_func(model)]
+        elif isinstance(schema, dict):
             # JSON schema -> OpenAI schema, Validator
             schema_copy = deepcopy(schema)
             if require_doc:
@@ -80,7 +81,7 @@ def function_tool(
                 "No schema could be created, please provide either a Pydantic model, a JSON schema, or a docstring with type hints."
             )
 
-        # override the pydantic model/ schema title with the function name
+        # override the pydantic model / schema title with the function name
         arg_schema[0]["function"]["name"] = func_name
 
         # ========== Attach the tool attributes ========== #

@@ -3,6 +3,7 @@ import json
 from typing import Callable
 from typing_extensions import deprecated
 
+from openai import pydantic_function_tool
 from docstring_parser import parse
 from pydantic import BaseModel, Field, create_model, ValidationError as PydanticValError
 from jsonschema import Draft202012Validator
@@ -139,12 +140,13 @@ def set_description(schema: dict, func: Callable, override: bool = False):
 # Pydantic/JSON Schema -> OpenAI function schema
 def schema_to_openai_func(schema: dict | type[BaseModel], nested=True) -> dict:
     if not isinstance(schema, dict) and issubclass(schema, BaseModel):
-        schema = schema.model_json_schema()
+        return pydantic_function_tool(schema)
+
     if nested:
         schema = to_nested_schema(schema, no_title=False)
 
     # Convert properties
-    remove_title(schema["properties"])
+    # remove_title(schema["properties"])
 
     # Construct the OpenAI function schema format
     return {

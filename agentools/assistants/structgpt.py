@@ -38,7 +38,7 @@ class StructGPT(ChatGPT, Generic[S]):
         messages: MessageHistory | None = None,
     ):
         @function_tool(
-            name=tool_name,
+            name=tool_name or struct.__name__,
             require_doc=False,
             schema=struct,
         )
