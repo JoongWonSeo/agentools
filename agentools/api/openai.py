@@ -24,7 +24,7 @@ default_groq_client = None
 default_openai_client = None
 
 
-def get_default_async_client(model: str) -> bool:
+def get_default_async_client(model: str) -> AsyncOpenAI | AsyncGroq:
     global default_groq_client, default_openai_client
     if (
         model.startswith("llama")

@@ -13,7 +13,7 @@ tiktoken = "^0.7.0"
 jsonref = "^1.1"
 docstring-parser = "^0.15"
 json-autocomplete = "^0.2"
-openai = "^1.59.7"
+openai = {extras = ["realtime"], version = "^1.61.0"}
 jsonschema = "^4.20"
 groq = "^0.5"
 qdrant-client = "^1.9"
