@@ -168,6 +168,8 @@ class ChatGPT(Assistant):
 
             # select the message if there are multiple choices
             choice_index = 0
+            if len(completion.choices) == 0:
+                continue
             message = completion.choices[choice_index].message
             yield self.FullMessageEvent(message, choice_index=choice_index)
 
@@ -218,6 +220,8 @@ class ChatGPT(Assistant):
 
             # select the message if there are multiple choices
             choice_index = 0
+            if len(chunk.choices) == 0:
+                continue
             delta = chunk.choices[choice_index].delta
             message = partial.choices[choice_index].message
             yield self.PartialMessageEvent(message, choice_index=choice_index)
