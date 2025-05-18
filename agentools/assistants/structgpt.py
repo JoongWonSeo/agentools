@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 import json
-from typing import Callable, AsyncIterator, Generic, Iterable, TypeVar, override
+from typing import Callable, AsyncIterator, Generic, Iterable, TypeVar, override, Type
 
 from pydantic import BaseModel
 from json_autocomplete import json_autocomplete
 
-from ..tools import function_tool
+from ..tools import function_tool, FunctionTool
 from ..messages import MessageHistory, Message, Content
 from .core import Assistant
 from .chatgpt import ChatGPT
@@ -13,6 +13,17 @@ from .utils import format_event
 
 
 S = TypeVar("S", bound=BaseModel)
+_S_EVENT = TypeVar("_S_EVENT", bound=BaseModel)
+
+
+@dataclass
+class StructCreatedEvent(Assistant.Event, Generic[_S_EVENT]):
+    result: _S_EVENT
+
+
+@dataclass
+class StructFailedEvent(Assistant.Event):
+    result: str
 
 
 class StructGPT(ChatGPT, Generic[S]):
@@ -21,19 +32,11 @@ class StructGPT(ChatGPT, Generic[S]):
     DEFAULT_MODEL = "gpt-4o-mini"
     DEFAULT_ATTEMPTS = 5
 
-    @dataclass
-    class StructCreatedEvent(Assistant.Event, Generic[S]):
-        result: S
-
-    @dataclass
-    class StructFailedEvent(Assistant.Event):
-        result: str
-
     def __init__(
         self,
-        struct: type[S],
+        struct: Type[S],
         model: str = DEFAULT_MODEL,
-        tool_name: str = None,
+        tool_name: str | None = None,
         on_preview: Callable | None = None,
         messages: MessageHistory | None = None,
     ):
@@ -48,8 +51,9 @@ class StructGPT(ChatGPT, Generic[S]):
         # wrap the preview function to register it to the tool
         self.on_preview = create.preview(on_preview) if on_preview else None
 
-        super().__init__(messages, tools=create, model=model)
+        super().__init__(messages, tools=create, model=model)  # type: ignore
 
+        self.default_tools: FunctionTool
         self.struct = struct
 
     async def __call__(
@@ -79,16 +83,24 @@ class StructGPT(ChatGPT, Generic[S]):
                 event_logger(format_event(event))
 
             match event:
-                case self.StructCreatedEvent():
-                    # print(f"[Struct]: {event.result}", flush=True)
-                    return event.result
-
-                case self.StructFailedEvent():
-                    # print(f"[Struct Failed]: {event.result}", flush=True)
+                case StructCreatedEvent():
+                    if isinstance(event.result, self.struct):
+                        return event.result  # type: ignore # result is S
+                    else:
+                        # This case should ideally not be reached if event_adapter is correct
+                        raise TypeError(
+                            f"StructCreatedEvent payload has unexpected type: {type(event.result)}"
+                        )
+                case StructFailedEvent():
+                    # Continue loop, eventually will hit MaxCallsExceededEvent or end of attempts
                     pass
-
                 case self.MaxCallsExceededEvent():
                     raise Exception("Max attempts exceeded")
+
+        # If loop finishes without returning S or raising for MaxCallsExceededEvent
+        raise Exception(
+            "Struct creation failed to produce a valid structure after all attempts."
+        )
 
     async def stream_json(
         self,
@@ -132,10 +144,10 @@ class StructGPT(ChatGPT, Generic[S]):
                         continue
 
                 # This handler is not necessary, because the last event will always be the full json
-                case self.StructCreatedEvent():
+                case StructCreatedEvent():
                     return
 
-                case self.StructFailedEvent():
+                case StructFailedEvent():
                     raise Exception("Struct creation failed")
 
                 case self.MaxCallsExceededEvent():
@@ -146,7 +158,7 @@ class StructGPT(ChatGPT, Generic[S]):
     async def event_adapter(
         self,
         response_events: AsyncIterator[Assistant.Event],
-        messages: MessageHistory = None,
+        messages: MessageHistory | None = None,
     ):
         """
         Converts the tool result event to a StructCreatedEvent or StructFailedEvent.
@@ -156,13 +168,13 @@ class StructGPT(ChatGPT, Generic[S]):
             match e:
                 # full tool result message arrived
                 case self.ToolResultEvent():
-                    # if the result successfully executed, yield it
-                    if type(e.result) is self.struct:
-                        yield self.StructCreatedEvent(e.result)
+                    # Ensure e.result is not None before checking its type with isinstance
+                    if e.result is not None and isinstance(e.result, self.struct):
+                        yield StructCreatedEvent[S](result=e.result)
                         # override the result, although it wouldn't matter
                         e.result = "Success"
                     else:
-                        yield self.StructFailedEvent(e.result)
+                        yield StructFailedEvent(e.result)
 
             # transparently yield the event
             yield e

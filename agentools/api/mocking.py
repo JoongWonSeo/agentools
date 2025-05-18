@@ -6,6 +6,8 @@ from copy import deepcopy
 from openai.types.chat.chat_completion import (
     ChatCompletion,  # Overall Completion, has id, stats, choices
     Choice,  # completion.choice[0], has finish_reason, index, message
+)
+from openai.types.chat.chat_completion_message import (
     ChatCompletionMessage,  # completion.choice[0].message, has role, content, tool_calls
 )
 from openai.types.chat.chat_completion_chunk import (

@@ -1,6 +1,6 @@
 from abc import ABC
 import asyncio
-from typing import Callable
+from typing import Any, Callable
 from functools import wraps
 from itertools import chain
 import json
@@ -12,6 +12,7 @@ class CallableTool(ABC):
     in_thread: bool  # whether to run the function in a separate thread
     include_call_id: bool  # whether to include the call_id in the function arguments
 
+    @staticmethod
     def __call__(args: dict) -> str: ...
 
 
@@ -22,6 +23,10 @@ class Tools(ABC):
     schema: list[dict]  # list of OpenAI function schemas
     lookup: dict[str, CallableTool]  # dict of tool name to function implementation
     lookup_preview: dict[str, CallableTool]  # dict of tool name to preview function
+
+
+class FunctionTool(Tools, CallableTool):
+    name: str
 
 
 class ToolList(Tools):
@@ -122,7 +127,7 @@ class Toolkit(Tools):
         """Make a function which automatically receives self as the first argument"""
 
         @wraps(func)
-        def wrapper(kwargs: dict[str, any]):
+        def wrapper(kwargs: dict[str, Any]):
             return func({"self": self, **kwargs})
 
         return wrapper

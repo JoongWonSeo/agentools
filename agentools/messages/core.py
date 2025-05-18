@@ -1,4 +1,4 @@
-from typing import Iterable, Literal, Unpack, overload
+from typing import Iterable, Literal, overload
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
@@ -61,7 +61,7 @@ def msg(*, tool: str, tool_call_id: str) -> ToolMessage:
 
 
 @overload
-def msg(**kwargs: Unpack[Message]) -> Message:
+def msg(**kwargs) -> Message:
     """Define a message by keyword arguments"""
 
 
@@ -72,7 +72,7 @@ def msg(
     user=None,
     assistant=None,
     tool=None,
-    tool_call_id=None,
+    tool_call_id: str | None = None,
     role: Literal["developer", "system", "user", "assistant", "tool"] | None = None,
     **kwargs,
 ) -> Message:
@@ -83,35 +83,37 @@ def msg(
         sum(arg is not None for arg in [developer, system, user, assistant, tool, role])
         == 1
     ), "Only one of developer/system/user/assistant/tool/role should be specified"
-    assert (
-        tool is None or tool_call_id is not None
-    ), "tool_call_id must be specified if tool is specified"
 
     if developer is not None:
-        return {"role": "developer", "content": developer}
+        return DeveloperMessage(role="developer", content=developer)
     elif system is not None:
-        return {"role": "system", "content": system}
+        return SystemMessage(role="system", content=system)
     elif user is not None:
-        return {"role": "user", "content": user}
+        return UserMessage(role="user", content=user)
     elif assistant is not None:  # TODO: assistant tool calls
-        return {"role": "assistant", "content": assistant}
+        return AssistantMessage(role="assistant", content=assistant)
     elif tool is not None:
-        return {"role": "tool", "content": tool, "tool_call_id": tool_call_id}
+        assert tool_call_id is not None, (
+            "tool_call_id must be specified if tool is specified"
+        )
+        return ToolMessage(role="tool", content=tool, tool_call_id=tool_call_id)
     elif role is not None:
         # TODO: runtime validation would be great, but TypeAdapter currently doesn't support nested TypedDict validation
         # m = {"role": role, **kwargs}
         # TypeAdapter(Message).validate_python(m)
         # return m
 
-        return {"role": role, **kwargs}
+        return {"role": role, **kwargs}  # type: ignore
+    else:
+        raise ValueError("No message role specified")
 
 
 class MessageHistory(ABC):
     # history of already completed messages
-    history: list[dict]
+    history: list[Message]
 
     @abstractmethod
-    async def append(self, message: dict | ChatCompletionMessage):
+    async def append(self, message: Message | ChatCompletionMessage):
         """Add a message to the history"""
         ...
 
@@ -121,13 +123,11 @@ class MessageHistory(ABC):
         ...
 
     @staticmethod
-    def ensure_dict(message: dict | ChatCompletionMessage):
+    def ensure_dict(message: Message | ChatCompletionMessage) -> Message:
         """Convert assistant pydantic message to dict"""
         if isinstance(message, BaseModel):
-            message = message.model_dump()
-            # remove any None values (tool calls)
-            message = {k: v for k, v in message.items() if v is not None}
-        return message
+            message = message.model_dump(exclude_none=True)  # type: ignore
+        return message  # type: ignore
 
 
 class SimpleHistory(MessageHistory):
@@ -136,11 +136,11 @@ class SimpleHistory(MessageHistory):
     Kind of acts like a list
     """
 
-    def __init__(self, initial: list[dict] = []):
+    def __init__(self, initial: list[Message] = []):
         self.initial = initial
         self.history = deepcopy(initial)
 
-    async def append(self, message: dict | ChatCompletionMessage):
+    async def append(self, message: Message | ChatCompletionMessage):
         message = self.ensure_dict(message)
         self.history.append(message)
 

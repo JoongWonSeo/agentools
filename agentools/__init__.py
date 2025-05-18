@@ -44,7 +44,7 @@ __all__ = [
     "UserMessage",
     "AssistantMessage",
     "ToolMessage",
-    # contents,
+    # contents
     "content",
     "Content",
     "TextContent",
@@ -62,6 +62,7 @@ __all__ = [
     "OpenAIEmbedding",
     # tools
     "Tools",
+    "FunctionTool",
     "Toolkit",
     "ToolList",
     "call_requested_function",
@@ -114,6 +115,7 @@ from .retrieval import (
 )
 from .tools import (
     Tools,
+    FunctionTool,
     Toolkit,
     ToolList,
     call_requested_function,

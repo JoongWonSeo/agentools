@@ -1,8 +1,15 @@
 import asyncio
 from dataclasses import dataclass
+from typing import Protocol, runtime_checkable
 
 
-def format_event(event: dataclass) -> str:
+@runtime_checkable
+@dataclass
+class Dataclass(Protocol):
+    pass
+
+
+def format_event(event: Dataclass) -> str:
     """Format an event as a string"""
     return f"[{event.__class__.__name__}]: {', '.join([f'{k}={v}' for k, v in event.__dict__.items()])}"
     # return str(event)

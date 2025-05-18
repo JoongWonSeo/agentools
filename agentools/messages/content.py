@@ -43,16 +43,19 @@ def content(
 
 
 @overload
-def content(*, image_url: ImageURL) -> ImageContent:
+def content(*, image_url: str | ImageURL | None) -> ImageContent:
     """
     OpenAI image content part: {"type": "image_url", "image_url": ...}
     """
     ...
 
 
+type AudioData = str | bytes | bytearray | memoryview
+
+
 @overload
 def content(
-    *, input_audio: str | bytes | bytearray | memoryview, format: Literal["wav", "mp3"]
+    *, input_audio: AudioData, format: Literal["wav", "mp3"]
 ) -> InputAudioContent:
     """OpenAI audio content part: {"type": "input_audio", "input_audio": ...}"""
     ...
@@ -65,24 +68,30 @@ def content(*, input_audio: InputAudio) -> InputAudioContent:
 
 
 def content(
-    *, text=None, image_url=None, detail=None, input_audio=None, format=None
+    *,
+    text=None,
+    image_url: str | ImageURL | None = None,
+    detail: Literal["auto", "low", "high"] | None = None,
+    input_audio: AudioData | InputAudio | None = None,
+    format: Literal["wav", "mp3"] | None = None,
 ) -> Content:
     # text content
     if text is not None:
-        assert all(
-            arg is None for arg in (image_url, detail, input_audio, format)
-        ), "Text content should not have other arguments"
+        assert all(arg is None for arg in (image_url, detail, input_audio, format)), (
+            "Text content should not have other arguments"
+        )
         return {"type": "text", "text": text}
 
     # image content
     elif image_url is not None:
-        assert all(
-            arg is None for arg in (text, input_audio, format)
-        ), "Image content should not have other arguments"
+        assert all(arg is None for arg in (text, input_audio, format)), (
+            "Image content should not have other arguments"
+        )
         if isinstance(image_url, dict):
             # ImageURL dict
             assert detail is None, "ImageURL should not have detail argument"
-            return {"type": "image_url", "image_url": image_url}
+            # return {"type": "image_url", "image_url": image_url}
+            return ImageContent(type="image_url", image_url=image_url)
         else:
             assert isinstance(image_url, str), "image_url should be str"
             # image url
@@ -96,17 +105,17 @@ def content(
 
     # audio content
     elif input_audio is not None:
-        assert all(
-            arg is None for arg in (text, image_url, detail)
-        ), "Audio content should not have other arguments"
+        assert all(arg is None for arg in (text, image_url, detail)), (
+            "Audio content should not have other arguments"
+        )
         if isinstance(input_audio, dict):
             # InputAudio dict
             assert format is None, "InputAudio should not have format argument"
             return {"type": "input_audio", "input_audio": input_audio}
         else:
-            assert isinstance(
-                input_audio, (str, bytes, bytearray, memoryview)
-            ), "input_audio should be str or byte-like"
+            assert isinstance(input_audio, (str, bytes, bytearray, memoryview)), (
+                "input_audio should be str or byte-like"
+            )
             assert format is not None, "Audio format should be provided"
             if not isinstance(input_audio, str):
                 input_audio = base64.b64encode(input_audio).decode("utf-8")

@@ -1,7 +1,7 @@
 import asyncio
 from functools import wraps
 from copy import deepcopy
-from typing import Callable
+from typing import Any, Callable, Coroutine
 
 from pydantic import BaseModel
 
@@ -17,7 +17,7 @@ from .utils import (
 
 
 def function_tool(
-    function: Callable = None,
+    function: Callable | None = None,
     *,
     name: str | None = None,
     require_doc: bool = True,
@@ -113,7 +113,7 @@ def _create_validate_and_call(func):
     """
     A function factory that creates a validate_and_call function for the given function."""
 
-    def validate_and_call(args: dict) -> str:
+    def validate_and_call(args: dict) -> str | Coroutine[Any, Any, str]:
         """
         Given a dictionary of arguments, validate them and call the underlying function, which we are currently decorating.
         Also dynamically become async if the underlying function is async.
@@ -154,15 +154,15 @@ def _create_preview_decorator(orig_functool):
         """
 
         @wraps(preview_func)
-        def wrapper(kwargs: dict[str, any]):
+        def wrapper(kwargs: dict[str, Any]):
             return preview_func(**kwargs)
 
         orig_functool.lookup_preview[orig_functool.name] = wrapper
 
         # inherit the in_thread setting from the original function
         # TODO: make this controllable by the user
-        wrapper.in_thread = orig_functool.validate_and_call.in_thread
-        wrapper.include_call_id = orig_functool.validate_and_call.include_call_id
+        wrapper.in_thread = orig_functool.validate_and_call.in_thread  # type: ignore
+        wrapper.include_call_id = orig_functool.validate_and_call.include_call_id  # type: ignore
         return wrapper
 
     return decorator

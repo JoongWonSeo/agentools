@@ -5,12 +5,11 @@ Interactions with the OpenAI API and wrappers around the API.
 from typing import AsyncIterator
 
 from openai import AsyncOpenAI, AsyncStream
-from groq import AsyncGroq
-import openai.types.chat.chat_completion as Normal
-from openai.types.chat.chat_completion import (
-    ChatCompletion as ChatCompletion,
+from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion import ChatCompletion as ChatCompletion
+from openai.types.chat.chat_completion_message import (
     ChatCompletionMessage as ChatCompletionMessage,
-)  # re-export to __init__.py
+)
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall as ToolCall,
@@ -20,27 +19,19 @@ from openai.types.chat.chat_completion_message_tool_call import (
 
 from .mocking import mock_response, mock_streaming_response, GLOBAL_RECORDINGS
 
-default_groq_client = None
 default_openai_client = None
 
 
-def get_default_async_client(model: str) -> AsyncOpenAI | AsyncGroq:
-    global default_groq_client, default_openai_client
-    if (
-        model.startswith("llama")
-        or model.startswith("mixtral")
-        or model.startswith("gemma")
-    ):
-        if default_groq_client is None:
-            default_groq_client = AsyncGroq()
-        return default_groq_client
-    else:
-        if default_openai_client is None:
-            default_openai_client = AsyncOpenAI()
-        return default_openai_client
+def get_default_async_client(model: str) -> AsyncOpenAI:
+    global default_openai_client
+    if default_openai_client is None:
+        default_openai_client = AsyncOpenAI()
+    return default_openai_client
 
 
-async def openai_chat(client: AsyncOpenAI | AsyncGroq | None = None, **openai_kwargs):
+async def openai_chat(
+    client: AsyncOpenAI | None = None, **openai_kwargs
+) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
     """
     Thin wrapper around openai with mocking and potential for other features/backend
     - Use model='mock' to simply return "Hello, world"
@@ -85,16 +76,16 @@ async def openai_chat(client: AsyncOpenAI | AsyncGroq | None = None, **openai_kw
     # Record the response if recording
     if GLOBAL_RECORDINGS.current_recorder:
         if openai_kwargs.get("stream"):
-            return await GLOBAL_RECORDINGS.current_recorder.record(gen)
+            return await GLOBAL_RECORDINGS.current_recorder.record(gen)  # type: ignore
         else:
             raise ValueError("Recording non-streaming responses is not supported yet.")
     else:
-        return gen
+        return gen  # type: ignore
 
 
 async def accumulate_partial(
     stream: AsyncStream[ChatCompletionChunk],
-) -> AsyncIterator[tuple[ChatCompletionChunk, Normal.ChatCompletion]]:
+) -> AsyncIterator[tuple[ChatCompletionChunk, ChatCompletion]]:
     """
     Adapter that accumulates a stream of deltas into a stream of partial messages,
     e.g. "I", "love", "sushi" -> "I", "I love", "I love sushi"
@@ -112,7 +103,7 @@ async def accumulate_partial(
     try:
         async for chunk in stream:
             if completion is None:
-                completion = Normal.ChatCompletion(
+                completion = ChatCompletion(
                     id=chunk.id,
                     choices=[],  # populated later
                     created=chunk.created,
@@ -127,11 +118,11 @@ async def accumulate_partial(
                 if len(completion.choices) <= delta_choice.index:
                     completion.choices.extend(
                         [
-                            Normal.Choice(
+                            Choice(
                                 finish_reason="length",  # NOTE: this is a fallback
                                 index=i,
                                 logprobs=None,
-                                message=Normal.ChatCompletionMessage(
+                                message=ChatCompletionMessage(
                                     role="assistant", content=None
                                 ),
                             )
@@ -151,7 +142,7 @@ async def accumulate_partial(
                 )
 
                 # update the message
-                message.role = delta_message.role or message.role
+                message.role = delta_message.role or message.role  # type: ignore
 
                 if delta_message.content:
                     if not message.content:

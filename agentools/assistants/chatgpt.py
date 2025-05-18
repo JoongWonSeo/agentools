@@ -9,6 +9,8 @@ from ..api.openai import (
     accumulate_partial,
     ChatCompletion,
     ToolCall,
+    AsyncStream,
+    ChatCompletionChunk,
 )
 from ..tools import Tools, ToolList, call_requested_function, call_function_preview
 from ..messages import MessageHistory, SimpleHistory, msg, Message, Content
@@ -74,13 +76,18 @@ class ChatGPT(Assistant):
 
             match event:
                 case self.ResponseEndEvent():
-                    return event.content
+                    if event.content:
+                        return event.content
+                    else:
+                        raise ValueError("The response was empty")
+
+        raise ValueError("No response event was yielded")
 
     # ========== Event Adapters ========== #
     async def event_adapter(
         self,
         response_events: AsyncIterator[Assistant.Event],
-        messages: MessageHistory = None,
+        messages: MessageHistory | None = None,
     ):
         """
         Takes care of automatically appending new messages to the message history
@@ -124,7 +131,7 @@ class ChatGPT(Assistant):
             parallel_calls: Whether to run tool calls in parallel
             **openai_kwargs: Additional arguments to pass to the OpenAI API
         """
-        messages: MessageHistory = messages or self.messages
+        messages = messages or self.messages
         model = model or self.default_model
         tools = tools or self.default_tools
         tools = ToolList(*tools) if isinstance(tools, list) else tools
@@ -136,7 +143,7 @@ class ChatGPT(Assistant):
         # add the prompt to the message history
         if prompt is not None:
             # non-dict prompt is assumed to be a user message
-            m = prompt if isinstance(prompt, dict) else msg(user=prompt)
+            m: Message = prompt if isinstance(prompt, dict) else msg(user=prompt)  # type: ignore
             await messages.append(m)
 
         # prompt the assistant and let it use the tools
@@ -155,16 +162,16 @@ class ChatGPT(Assistant):
                     **openai_kwargs,
                 ),
             )
-            completion: ChatCompletion = None
+            completion: ChatCompletion | None = None
             async for partial_event in completion_events:
                 yield partial_event
                 match partial_event:
                     case self.CompletionEvent():
                         completion = partial_event.completion
 
-            assert (
-                completion is not None
-            ), "Full Model Completion was not yielded by the completion_events() generator"
+            assert completion is not None, (
+                "Full Model Completion was not yielded by the completion_events() generator"
+            )
 
             # select the message if there are multiple choices
             choice_index = 0
@@ -206,13 +213,15 @@ class ChatGPT(Assistant):
         # ========== simple non-streaming case ========== #
         if not openai_args.get("stream", False):
             # call the underlying API
-            completion = await openai_chat(**openai_args)
+            completion: ChatCompletion = await openai_chat(**openai_args)  # type: ignore
             yield self.CompletionEvent(completion, call_index)
             return
 
         # ========== streaming case ========== #
         # call the underlying API
-        completion_stream = await openai_chat(**openai_args)
+        completion_stream: AsyncStream[ChatCompletionChunk] = await openai_chat(
+            **openai_args
+        )  # type: ignore
 
         # yield events during streaming
         async for chunk, partial in accumulate_partial(completion_stream):
@@ -229,13 +238,15 @@ class ChatGPT(Assistant):
             # when text content was updated
             if delta.content:
                 # handle text message content
-                yield self.PartialTextMessageEvent(message.content)
+                yield self.PartialTextMessageEvent(message.content)  # type: ignore
 
             # when tool calls was updated
             if tools and delta.tool_calls:
                 # handle tool calls
                 async for tool_event in self.partial_tool_events(
-                    message.tool_calls, tools, parallel_calls
+                    message.tool_calls,  # type: ignore
+                    tools,
+                    parallel_calls,
                 ):
                     yield tool_event
 
@@ -272,7 +283,10 @@ class ChatGPT(Assistant):
             yield self.ToolResultEvent(result, call, i)
 
     async def partial_tool_events(
-        self, tool_calls: list[ToolCall], tools: Tools, parallel_calls: bool
+        self,
+        tool_calls: list[ToolCall],
+        tools: Tools | list[Tools],
+        parallel_calls: bool,
     ) -> AsyncIterator[Assistant.Event]:
         """
         Generate events from a list of tool preview calls, yielding each partial tool call, executing them, and yielding the result of the preview function. You should override this to customize the tool preview call handling, also defining your own events to yield.
@@ -354,7 +368,7 @@ class GPT(ChatGPT):
         Returns:
             The assistant's final response
         """
-        messages: MessageHistory = messages or self.messages
+        messages = messages or self.messages
         async for event in self.response_events(
             prompt, messages, tools, model, max_function_calls, **openai_kwargs
         ):
@@ -364,4 +378,9 @@ class GPT(ChatGPT):
             match event:
                 case self.ResponseEndEvent():
                     await messages.reset()
-                    return event.content
+                    if event.content:
+                        return event.content
+                    else:
+                        raise ValueError("The response was empty")
+
+        raise ValueError("No response event was yielded")

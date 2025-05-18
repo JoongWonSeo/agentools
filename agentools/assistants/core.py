@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Iterable
 from abc import ABC
 from dataclasses import dataclass
 
@@ -9,6 +9,7 @@ from ..api import (
     ChatCompletionChunk,
 )
 from ..tools import Tools
+from ..messages import Content, Message
 
 
 class Assistant(ABC):
@@ -20,6 +21,7 @@ class Assistant(ABC):
     For passing events to a frontend, you could create an "adapter" generator that converts the events to whichever format the frontend expects, and simply use that generator for Server-Sent Events or StreamedResponses.
     """
 
+    @dataclass
     class Event(ABC):
         """Event base class for Assistant events that occur during a prompt response."""
 
@@ -30,8 +32,8 @@ class Assistant(ABC):
     class ResponseStartEvent(Event):
         """Assistant was prompted with the following args"""
 
-        prompt: str
-        tools: Optional[Tools]
+        prompt: str | Iterable[Content] | Message | None
+        tools: Tools | None
         model: str
         max_function_calls: int
         openai_kwargs: dict
@@ -80,7 +82,7 @@ class Assistant(ABC):
     class ResponseEndEvent(Event):
         """Prompt response is complete with the following final content"""
 
-        content: str
+        content: str | None
 
     # ================ Partial Response (Streaming) Events =================#
     @dataclass

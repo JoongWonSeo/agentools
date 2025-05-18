@@ -1,5 +1,6 @@
 __all__ = [
     "Tools",
+    "FunctionTool",
     "Toolkit",
     "ToolList",
     "call_requested_function",
@@ -11,6 +12,7 @@ __all__ = [
 
 from .core import (
     Tools,
+    FunctionTool,
     Toolkit,
     ToolList,
     call_requested_function,
