@@ -1,21 +1,23 @@
 import base64
 import re
-from typing import Literal, overload
+from typing import Iterable, Literal, overload
 
-
+from openai.types.chat.chat_completion_content_part_image_param import (
+    ChatCompletionContentPartImageParam as ImageContent,
+)
+from openai.types.chat.chat_completion_content_part_image_param import ImageURL
+from openai.types.chat.chat_completion_content_part_input_audio_param import (
+    ChatCompletionContentPartInputAudioParam as InputAudioContent,
+)
+from openai.types.chat.chat_completion_content_part_input_audio_param import InputAudio
 from openai.types.chat.chat_completion_content_part_param import (
     ChatCompletionContentPartParam as Content,
 )
+from openai.types.chat.chat_completion_content_part_refusal_param import (
+    ChatCompletionContentPartRefusalParam as RefusalContent,
+)
 from openai.types.chat.chat_completion_content_part_text_param import (
     ChatCompletionContentPartTextParam as TextContent,
-)
-from openai.types.chat.chat_completion_content_part_image_param import (
-    ChatCompletionContentPartImageParam as ImageContent,
-    ImageURL,
-)
-from openai.types.chat.chat_completion_content_part_input_audio_param import (
-    ChatCompletionContentPartInputAudioParam as InputAudioContent,
-    InputAudio,
 )
 
 
@@ -126,6 +128,15 @@ def content(
 
     else:
         raise ValueError("One of text/image/audio should be specified")
+
+
+def ensure_content(content: Iterable[Content | RefusalContent]) -> list[Content]:
+    """
+    Raises ValueError if any content is a refusal.
+    """
+    if any(c["type"] == "refusal" for c in content):
+        raise ValueError("Refusal content is not allowed")
+    return [c for c in content if c["type"] != "refusal"]
 
 
 def format_contents(

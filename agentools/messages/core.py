@@ -1,27 +1,27 @@
-from typing import Iterable, Literal, overload
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from typing import Iterable, Literal, overload
 
-from pydantic import BaseModel
 from openai.types.chat import ChatCompletionMessage
-from openai.types.chat.chat_completion_message_param import (
-    ChatCompletionMessageParam as Message,
+from openai.types.chat.chat_completion_assistant_message_param import (
+    ChatCompletionAssistantMessageParam as AssistantMessage,
 )
 from openai.types.chat.chat_completion_developer_message_param import (
     ChatCompletionDeveloperMessageParam as DeveloperMessage,
 )
+from openai.types.chat.chat_completion_message_param import (
+    ChatCompletionMessageParam as Message,
+)
 from openai.types.chat.chat_completion_system_message_param import (
     ChatCompletionSystemMessageParam as SystemMessage,
-)
-from openai.types.chat.chat_completion_user_message_param import (
-    ChatCompletionUserMessageParam as UserMessage,
-)
-from openai.types.chat.chat_completion_assistant_message_param import (
-    ChatCompletionAssistantMessageParam as AssistantMessage,
 )
 from openai.types.chat.chat_completion_tool_message_param import (
     ChatCompletionToolMessageParam as ToolMessage,
 )
+from openai.types.chat.chat_completion_user_message_param import (
+    ChatCompletionUserMessageParam as UserMessage,
+)
+from pydantic import BaseModel
 
 from .content import Content, TextContent
 
