@@ -1,6 +1,6 @@
 import asyncio
-from functools import wraps
 from copy import deepcopy
+from functools import wraps
 from typing import Any, Callable, Coroutine
 
 from pydantic import BaseModel
@@ -10,9 +10,9 @@ from .utils import (
     ValidationError,
     awaitable,
     pydantic_from_doc,
+    schema_to_openai_func,
     set_description,
     validator_from_schema,
-    schema_to_openai_func,
 )
 
 
@@ -24,6 +24,7 @@ def function_tool(
     schema: type[BaseModel] | JSONSchema | None = None,
     in_thread: bool | None = None,
     include_call_id: bool = False,
+    strict: bool | None = None,
 ):
     """
     Simple decorator that:
@@ -40,6 +41,7 @@ def function_tool(
         schema: A Pydantic model / JSON schema given to model and for validation. If not provided, the docstring will be used.
         in_thread: Whether to run the function in a separate thread, regardless of whether it is async or not.
         include_call_id: Whether to include the call_id in the function arguments.
+        strict: Whether the final schema should have strict mode enabled. None means use the default value of the schema.
     """
 
     def decorator(func):
@@ -83,6 +85,10 @@ def function_tool(
 
         # override the pydantic model / schema title with the function name
         arg_schema[0]["function"]["name"] = func_name
+
+        # set strict mode
+        if strict is not None:
+            arg_schema[0]["strict"] = strict
 
         # ========== Attach the tool attributes ========== #
         func.name = func_name
