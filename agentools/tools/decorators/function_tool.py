@@ -65,12 +65,12 @@ def function_tool(
             # JSON schema is provided
             model = None
 
+        description = d if require_doc and (d := docstring_description(func)) else None
+
         if model:
             # Pydantic model -> OpenAI schema, Validator
             arg_validator = validator_from_schema(model.model_json_schema())
-            description = (
-                d if require_doc and (d := docstring_description(func)) else None
-            )
+
             arg_schema = [schema_to_openai_func(model, description=description)]
         elif isinstance(schema, dict):
             # JSON schema -> OpenAI schema, Validator
@@ -81,7 +81,11 @@ def function_tool(
                 schema_copy,
                 name=func_name,
             )
-            arg_schema = [schema_to_openai_func(schema_copy)]
+            arg_schema = [
+                schema_to_openai_func(
+                    schema_copy, nested=False, description=description
+                )
+            ]
         else:
             raise ValueError(
                 "No schema could be created, please provide either a Pydantic model, a JSON schema, or a docstring with type hints."

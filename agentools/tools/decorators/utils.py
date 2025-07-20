@@ -165,11 +165,7 @@ def schema_to_openai_func(
         function=FunctionDefinition(
             name=schema["title"],
             **({"description": d} if (d := schema.get("description")) else {}),
-            parameters={
-                "type": "object",
-                "properties": schema["properties"],
-                "required": schema.get("required", []),
-            },
+            parameters=schema,
         ),
     )
 
