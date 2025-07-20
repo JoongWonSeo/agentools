@@ -1,13 +1,16 @@
 import inspect
 import json
 from typing import Callable
-from typing_extensions import deprecated
 
-from openai import pydantic_function_tool
-from docstring_parser import parse
-from pydantic import BaseModel, Field, create_model, ValidationError as PydanticValError
-from jsonschema import Draft202012Validator
 import jsonref
+from docstring_parser import parse
+from jsonschema import Draft202012Validator
+from openai import pydantic_function_tool
+from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
+from openai.types.shared_params.function_definition import FunctionDefinition
+from pydantic import BaseModel, Field, create_model
+from pydantic import ValidationError as PydanticValError
+from typing_extensions import deprecated
 
 
 class ValidationError(BaseException):
@@ -55,13 +58,13 @@ def pydantic_from_doc(
             continue
 
         if require_doc and not use_only_description:
-            assert (
-                param.name in param_descriptions
-            ), f"Missing description for parameter `{param.name}` in `{func.__name__}`'s docstring!"
+            assert param.name in param_descriptions, (
+                f"Missing description for parameter `{param.name}` in `{func.__name__}`'s docstring!"
+            )
 
-        assert (
-            param.annotation != inspect.Parameter.empty
-        ), f"Missing type annotation for parameter `{param.name}` in `{func.__name__}`!"
+        assert param.annotation != inspect.Parameter.empty, (
+            f"Missing type annotation for parameter `{param.name}` in `{func.__name__}`!"
+        )
 
         model_fields[param.name] = (
             param.annotation,  # type
@@ -129,18 +132,26 @@ def set_description(schema: dict, func: Callable, override: bool = False):
         override: whether to override the existing description, if False, empty docstrings will not override existing descriptions
     """
 
-    doc = parse(inspect.getdoc(func) or "")
-    parsed_description = (
-        f"{doc.short_description or ''}\n{doc.long_description or ''}".strip()
-    )
+    parsed_description = docstring_description(func)
     if override or parsed_description:
         schema["description"] = parsed_description
 
 
+def docstring_description(func):
+    doc = parse(inspect.getdoc(func) or "")
+    parsed_description = (
+        f"{doc.short_description or ''}\n{doc.long_description or ''}".strip()
+    )
+
+    return parsed_description
+
+
 # Pydantic/JSON Schema -> OpenAI function schema
-def schema_to_openai_func(schema: dict | type[BaseModel], nested=True) -> dict:
+def schema_to_openai_func(
+    schema: dict | type[BaseModel], nested: bool = True, description: str | None = None
+) -> ChatCompletionToolParam:
     if not isinstance(schema, dict) and issubclass(schema, BaseModel):
-        return pydantic_function_tool(schema)
+        return pydantic_function_tool(schema, description=description)
 
     if nested:
         schema = to_nested_schema(schema, no_title=False)
@@ -149,18 +160,18 @@ def schema_to_openai_func(schema: dict | type[BaseModel], nested=True) -> dict:
     # remove_title(schema["properties"])
 
     # Construct the OpenAI function schema format
-    return {
-        "type": "function",
-        "function": {
-            "name": schema["title"],
+    return ChatCompletionToolParam(
+        type="function",
+        function=FunctionDefinition(
+            name=schema["title"],
             **({"description": d} if (d := schema.get("description")) else {}),
-            "parameters": {
+            parameters={
                 "type": "object",
                 "properties": schema["properties"],
                 "required": schema.get("required", []),
             },
-        },
-    }
+        ),
+    )
 
 
 def to_nested_schema(schema: dict, no_title=True) -> dict:

@@ -9,6 +9,7 @@ from ..types import JSONSchema
 from .utils import (
     ValidationError,
     awaitable,
+    docstring_description,
     pydantic_from_doc,
     schema_to_openai_func,
     set_description,
@@ -67,7 +68,10 @@ def function_tool(
         if model:
             # Pydantic model -> OpenAI schema, Validator
             arg_validator = validator_from_schema(model.model_json_schema())
-            arg_schema = [schema_to_openai_func(model)]
+            description = (
+                d if require_doc and (d := docstring_description(func)) else None
+            )
+            arg_schema = [schema_to_openai_func(model, description=description)]
         elif isinstance(schema, dict):
             # JSON schema -> OpenAI schema, Validator
             schema_copy = deepcopy(schema)
@@ -88,7 +92,7 @@ def function_tool(
 
         # set strict mode
         if strict is not None:
-            arg_schema[0]["strict"] = strict
+            arg_schema[0]["function"]["strict"] = strict
 
         # ========== Attach the tool attributes ========== #
         func.name = func_name
