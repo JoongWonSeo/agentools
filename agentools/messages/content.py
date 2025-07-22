@@ -140,17 +140,20 @@ def ensure_content(content: Iterable[Content | RefusalContent]) -> list[Content]
 
 
 def format_contents(
-    prompt_template: str, _partial: bool = False, **substitutions: str | list[Content]
+    prompt_template: str,
+    _partial: bool = False,
+    _strip: bool = True,
+    **substitutions: str | list[Content],
 ) -> list[Content]:
     """
     Returns a list of content items by substituting placeholders in `prompt_template`.
 
-    - Double braces {{...}} are inserted verbatim into the text (i.e. "raw" text).
     - Single braces {key} are replaced with either:
         * a string (appended to the current text buffer),
         * a list of Content (causes the current text buffer to flush, then these items are inserted),
         * or if the key is missing:
             - raise ValueError unless _partial=True, in which case {key} is left as literal text.
+    - Use double braces {{...}} to escape a placeholder.
     - The result is a list of Content dicts.
       Contiguous text (including any single‐brace string substitutions and double‐brace literals)
       is combined into one "text" block until a list substitution is encountered or we reach the end.
@@ -164,7 +167,7 @@ def format_contents(
     )
     -> [
         {'type': 'text',
-            'text': 'Hello, Alice, see {{not a placeholder}}: '},
+            'text': 'Hello, Alice, see {not a placeholder}:'},
         {'type': 'image_url',
             'image_url': {'url': 'https://example.com/image.jpg'}},
         {'type': 'text', 'text': '!'}
@@ -212,8 +215,10 @@ def format_contents(
                     text_buffer.append(substitution)
                 elif isinstance(substitution, list):
                     # Flush text buffer as a single chunk (if non-empty)
-                    if text_buffer:
-                        result.append({"type": "text", "text": "".join(text_buffer)})
+                    new_text = "".join(text_buffer)
+                    next_text = new_text.strip() if _strip else new_text
+                    if next_text:
+                        result.append({"type": "text", "text": next_text})
                         text_buffer = []
                     # Extend result by the content list
                     result.extend(substitution)
@@ -228,7 +233,9 @@ def format_contents(
         text_buffer.append(prompt_template[last_index:])
 
     # Flush any final accumulated text
-    if text_buffer:
-        result.append({"type": "text", "text": "".join(text_buffer)})
+    new_text = "".join(text_buffer)
+    next_text = new_text.strip() if _strip else new_text
+    if next_text:
+        result.append({"type": "text", "text": next_text})
 
     return result
