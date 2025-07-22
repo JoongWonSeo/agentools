@@ -2,8 +2,9 @@
 Interactions with the OpenAI API and wrappers around the API.
 """
 
-from typing import AsyncIterator
+from typing import AsyncIterator, Callable
 
+import litellm
 from openai import AsyncOpenAI, AsyncStream
 from openai.types.chat.chat_completion import ChatCompletion as ChatCompletion
 from openai.types.chat.chat_completion import Choice
@@ -18,18 +19,9 @@ from openai.types.chat.chat_completion_message_tool_call import Function
 
 from .mocking import GLOBAL_RECORDINGS, mock_response, mock_streaming_response
 
-default_openai_client = None
-
-
-def get_default_async_client(model: str) -> AsyncOpenAI:
-    global default_openai_client
-    if default_openai_client is None:
-        default_openai_client = AsyncOpenAI()
-    return default_openai_client
-
 
 async def openai_chat(
-    client: AsyncOpenAI | None = None, **openai_kwargs
+    client: AsyncOpenAI | Callable | None = None, **openai_kwargs
 ) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
     """
     Thin wrapper around openai with mocking and potential for other features/backend
@@ -38,7 +30,7 @@ async def openai_chat(
     - Use model='echo' to echo the last message
 
     Args:
-        client: the client to use, or None to use the default AsyncOpenAI client
+        client: the client or async completion function to use, or None to use the default litellm client
         **openai_kwargs: kwargs to pass to `client.chat.completions.create`
     """
 
@@ -69,8 +61,13 @@ async def openai_chat(
         gen = await replay_model.replay()
 
     else:
-        client = client or get_default_async_client(openai_kwargs["model"])
-        gen = await client.chat.completions.create(**openai_kwargs)
+        if client is None:
+            acompletion = litellm.acompletion
+        elif isinstance(client, Callable):
+            acompletion = client
+        else:
+            acompletion = client.chat.completions.create
+        gen = await acompletion(**openai_kwargs)
 
     # Record the response if recording
     if GLOBAL_RECORDINGS.current_recorder:
@@ -152,7 +149,6 @@ async def accumulate_partial(
                         message.content = delta_message.content
                     else:
                         message.content += delta_message.content
-                    # TODO: update usage stats
 
                 if delta_message.tool_calls:
                     # ensure tool_calls list exists
@@ -193,11 +189,14 @@ async def accumulate_partial(
                             if delta_function.arguments:
                                 tool_call.function.arguments += delta_function.arguments
 
-            if chunk.usage:
+            if hasattr(chunk, "usage") and chunk.usage:
                 completion.usage = chunk.usage
 
             yield chunk, completion
     except Exception as e:
         raise e
     finally:
-        await stream.response.aclose()
+        try:
+            await stream.response.aclose()
+        except Exception:
+            pass

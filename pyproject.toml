@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "agentools"
-version = "0.7.0"
+version = "0.8.0"
 description = ""
 authors = ["Joong-Won Seo <joong.won.seo@gmail.com>"]
 readme = "README.md"
@@ -17,6 +17,7 @@ openai = { extras = ["realtime"], version = "^1.61.0" }
 jsonschema = "^4.20"
 qdrant-client = "^1.9"
 typing-extensions = "^4.12.2"
+litellm = "^1.74.7"
 
 
 [tool.poetry.group.dev.dependencies]
