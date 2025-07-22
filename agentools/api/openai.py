@@ -5,19 +5,18 @@ Interactions with the OpenAI API and wrappers around the API.
 from typing import AsyncIterator
 
 from openai import AsyncOpenAI, AsyncStream
-from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion import ChatCompletion as ChatCompletion
+from openai.types.chat.chat_completion import Choice
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message import (
     ChatCompletionMessage as ChatCompletionMessage,
 )
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall as ToolCall,
-    Function,
 )
+from openai.types.chat.chat_completion_message_tool_call import Function
 
-
-from .mocking import mock_response, mock_streaming_response, GLOBAL_RECORDINGS
+from .mocking import GLOBAL_RECORDINGS, mock_response, mock_streaming_response
 
 default_openai_client = None
 
@@ -141,6 +140,10 @@ async def accumulate_partial(
                     delta_choice.finish_reason or choice.finish_reason
                 )
 
+                if delta_message is None:
+                    # message itself was not updated, only misc. update like content_filter_*
+                    continue
+
                 # update the message
                 message.role = delta_message.role or message.role  # type: ignore
 
@@ -189,6 +192,9 @@ async def accumulate_partial(
 
                             if delta_function.arguments:
                                 tool_call.function.arguments += delta_function.arguments
+
+            if chunk.usage:
+                completion.usage = chunk.usage
 
             yield chunk, completion
     except Exception as e:
