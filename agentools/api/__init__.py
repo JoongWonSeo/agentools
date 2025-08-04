@@ -4,6 +4,7 @@ __all__ = [
     "ToolCall",
     "ChatCompletionChunk",
     "openai_chat",
+    "litellm_chat",
     "accumulate_partial",
     "set_mock_initial_delay",
     "set_mock_streaming_delay",
@@ -12,18 +13,19 @@ __all__ = [
     "GLOBAL_RECORDINGS",
 ]
 
-from .openai import (
-    ChatCompletion,
-    ChatCompletionMessage,
-    ToolCall,
-    ChatCompletionChunk,
-    openai_chat,
-    accumulate_partial,
-)
 from .mocking import (
-    set_mock_initial_delay,
-    set_mock_streaming_delay,
+    GLOBAL_RECORDINGS,
     AsyncGeneratorRecorder,
     Recordings,
-    GLOBAL_RECORDINGS,
+    set_mock_initial_delay,
+    set_mock_streaming_delay,
+)
+from .openai import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    ToolCall,
+    accumulate_partial,
+    litellm_chat,
+    openai_chat,
 )

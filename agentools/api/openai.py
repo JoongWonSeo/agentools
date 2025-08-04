@@ -16,6 +16,8 @@ from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall as ToolCall,
 )
 from openai.types.chat.chat_completion_message_tool_call import Function
+from openai.types.chat.completion_create_params import ResponseFormat
+from pydantic import BaseModel
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -36,7 +38,9 @@ def create_wrapped_openai(
         # Litellm params
         mock_response: str | None = None,
         custom_llm_provider: str | None = None,
-        # OpenAI params
+        # Modified OpenAI params
+        response_format: type[BaseModel] | ResponseFormat | None = None,
+        # Remaining OpenAI params
         *openai_args: P.args,
         **openai_kwargs: P.kwargs,
     ) -> R:
@@ -69,12 +73,15 @@ def create_wrapped_openai(
 
         if client is None:
             acompletion = litellm.acompletion
+            # FIXME: since the return value is slightly different, we need to convert it back (lossy)
+            # wrap with ChatCompletion.model_validate(r.model_dump())
         elif isinstance(client, Callable):
             acompletion = client
         else:
             acompletion = client.chat.completions.create
         return acompletion(
             *openai_args,  # type: ignore
+            response_format=response_format,
             **openai_kwargs,
             mock_response=mock_response,
             custom_llm_provider=custom_llm_provider,
@@ -86,6 +93,8 @@ def create_wrapped_openai(
 openai_chat = create_wrapped_openai(
     openai_func_for_typing=AsyncOpenAI(api_key="").chat.completions.create
 )
+
+litellm_chat = create_wrapped_openai(openai_func_for_typing=litellm.acompletion)
 
 
 async def accumulate_partial(
