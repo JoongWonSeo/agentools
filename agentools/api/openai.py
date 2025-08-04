@@ -2,7 +2,7 @@
 Interactions with the OpenAI API and wrappers around the API.
 """
 
-from typing import AsyncIterator, Callable
+from typing import AsyncIterator, Callable, ParamSpec, TypeVar
 
 import litellm
 from openai import AsyncOpenAI, AsyncStream
@@ -17,66 +17,75 @@ from openai.types.chat.chat_completion_message_tool_call import (
 )
 from openai.types.chat.chat_completion_message_tool_call import Function
 
-from .mocking import GLOBAL_RECORDINGS, mock_response, mock_streaming_response
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
-async def openai_chat(
-    client: AsyncOpenAI | Callable | None = None, **openai_kwargs
-) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
+def create_wrapped_openai(
+    openai_func_for_typing: Callable[P, R],
+):
     """
-    Thin wrapper around openai with mocking and potential for other features/backend
-    - Use model='mock' to simply return "Hello, world"
-    - Use model="mock:<message>" to return the message
-    - Use model='echo' to echo the last message
-
-    Args:
-        client: the client or async completion function to use, or None to use the default litellm client
-        **openai_kwargs: kwargs to pass to `client.chat.completions.create`
+    Due to python's typing limitations, to receive static type checking without re-declaring the entire OpenAI API,
+    we need to create a wrapper around the OpenAI API.
+    So the given parameter `openai_func_for_typing` is only used for type checking,
+    it won't actually be called.
     """
 
-    # The generator to return
-    gen = None
+    def wrapped_openai_chat_completion_create(
+        client: AsyncOpenAI | Callable | None = None,
+        # Litellm params
+        mock_response: str | None = None,
+        custom_llm_provider: str | None = None,
+        # OpenAI params
+        *openai_args: P.args,
+        **openai_kwargs: P.kwargs,
+    ) -> R:
+        """
+        Thin wrapper around openai with mocking and potential for other features/backend
+        - Use model='mock' to simply return "Hello, world"
+        - Use model="mock:<message>" to return the message
+        - Use model='echo' to echo the last message
 
-    if openai_kwargs["model"].startswith("mock"):
-        msg = (
-            openai_kwargs["model"].split(":", 1)[1]
-            if ":" in openai_kwargs["model"]
-            else "Hello, world!"
-        )
-        if openai_kwargs.get("stream"):
-            gen = await mock_streaming_response(msg)
-        else:
-            gen = await mock_response(msg)
+        Args:
+            client: the client or async completion function to use, or None to use the default litellm client
+            mock_response: Litellm param, response to return even if the model is not 'mock'
+            custom_llm_provider: Litellm param, the provider to use for the model
+            *openai_args: OpenAI params
+            **openai_kwargs: OpenAI params
+        """
 
-    elif openai_kwargs["model"] == "echo":
-        last_msg = openai_kwargs["messages"][-1]["content"]
-        if openai_kwargs.get("stream"):
-            gen = await mock_streaming_response(last_msg)
-        else:
-            gen = await mock_response(last_msg)
+        model = openai_kwargs.get("model")
+        assert isinstance(model, str), "model must be a string"
+        if model.startswith("mock"):
+            mocked = model.split(":", 1)[1] if ":" in model else "Hello, world!"
+            mock_response = mock_response or mocked  # prioritize the explicit param
+            custom_llm_provider = custom_llm_provider or "openai"
+        elif model == "echo":
+            messages = openai_kwargs.get("messages", [])
+            assert isinstance(messages, list), "messages must be a list"
+            last_msg = messages[-1]["content"] if messages else "Hello, world!"
+            mock_response = mock_response or last_msg
+            custom_llm_provider = custom_llm_provider or "openai"
 
-    elif openai_kwargs["model"].startswith("replay"):
-        r = openai_kwargs["model"].split(":", 1)[1]
-        replay_model = GLOBAL_RECORDINGS.recordings[int(r)]
-        gen = await replay_model.replay()
-
-    else:
         if client is None:
             acompletion = litellm.acompletion
         elif isinstance(client, Callable):
             acompletion = client
         else:
             acompletion = client.chat.completions.create
-        gen = await acompletion(**openai_kwargs)
+        return acompletion(
+            *openai_args,  # type: ignore
+            **openai_kwargs,
+            mock_response=mock_response,
+            custom_llm_provider=custom_llm_provider,
+        )
 
-    # Record the response if recording
-    if GLOBAL_RECORDINGS.current_recorder:
-        if openai_kwargs.get("stream"):
-            return await GLOBAL_RECORDINGS.current_recorder.record(gen)  # type: ignore
-        else:
-            raise ValueError("Recording non-streaming responses is not supported yet.")
-    else:
-        return gen  # type: ignore
+    return wrapped_openai_chat_completion_create
+
+
+openai_chat = create_wrapped_openai(
+    openai_func_for_typing=AsyncOpenAI(api_key="").chat.completions.create
+)
 
 
 async def accumulate_partial(
