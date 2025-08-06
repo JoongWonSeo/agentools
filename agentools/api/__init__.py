@@ -5,6 +5,7 @@ __all__ = [
     "ChatCompletionChunk",
     "openai_chat",
     "litellm_chat",
+    "openai_params",
     "accumulate_partial",
     "set_mock_initial_delay",
     "set_mock_streaming_delay",
@@ -28,4 +29,5 @@ from .openai import (
     accumulate_partial,
     litellm_chat,
     openai_chat,
+    openai_params,
 )

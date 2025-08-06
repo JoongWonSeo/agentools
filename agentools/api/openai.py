@@ -2,7 +2,7 @@
 Interactions with the OpenAI API and wrappers around the API.
 """
 
-from typing import AsyncIterator, Callable, ParamSpec, TypeVar
+from typing import Any, AsyncIterator, Callable, ParamSpec, TypeVar
 
 import litellm
 from openai import AsyncOpenAI, AsyncStream
@@ -22,9 +22,11 @@ from pydantic import BaseModel
 P = ParamSpec("P")
 R = TypeVar("R")
 
+dummy_client = AsyncOpenAI(api_key="")
+
 
 def create_wrapped_openai(
-    openai_func_for_typing: Callable[P, R],
+    openai_func_for_typing: Callable[P, R] = dummy_client.chat.completions.create,
 ):
     """
     Due to python's typing limitations, to receive static type checking without re-declaring the entire OpenAI API,
@@ -90,11 +92,35 @@ def create_wrapped_openai(
     return wrapped_openai_chat_completion_create
 
 
-openai_chat = create_wrapped_openai(
-    openai_func_for_typing=AsyncOpenAI(api_key="").chat.completions.create
-)
-
+openai_chat = create_wrapped_openai()
 litellm_chat = create_wrapped_openai(openai_func_for_typing=litellm.acompletion)
+
+
+# ========== static type checking utilities ========== #
+def create_validate_openai(
+    openai_func_for_typing: Callable[P, R] = dummy_client.chat.completions.create,
+):
+    """
+    Due to python's typing limitations, to receive static type checking without re-declaring the entire OpenAI API,
+    we need to create a wrapper around the OpenAI API.
+    So the given parameter `openai_func_for_typing` is only used for type checking,
+    it won't actually be called.
+    """
+
+    def validate_openai(
+        *openai_args: P.args,
+        **openai_kwargs: P.kwargs,
+    ) -> dict[str, Any]:
+        """
+        Utility for static type checking, simply returns the kwargs, args are dropped because OpenAI doesn't use any positional arguments
+        """
+        return openai_kwargs
+
+    return validate_openai
+
+
+openai_params = create_validate_openai()
+# ========== #
 
 
 async def accumulate_partial(
