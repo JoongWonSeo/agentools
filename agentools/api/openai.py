@@ -110,6 +110,10 @@ litellm_chat = create_wrapped_openai(openai_func_for_typing=litellm.acompletion)
 
 
 # ========== static type checking utilities ========== #
+class ChatCompletionParams(CompletionCreateParamsBase, total=False):
+    stream: bool  # since this is not declared in the base
+
+
 def create_validate_openai(
     openai_func_for_typing: Callable[P, R] = dummy_client.chat.completions.create,
 ):
@@ -129,13 +133,12 @@ def create_validate_openai(
 openai_params = create_validate_openai()
 
 
-class OptionalCompletionCreateParamsBase(CompletionCreateParamsBase, total=False):
+class PartialChatCompletionParams(ChatCompletionParams, total=False):
     messages: NotRequired[Iterable[ChatCompletionMessageParam]]  # type: ignore
     model: NotRequired[str]  # type: ignore
-    stream: bool  # since this is not declared in the base
 
 
-def openai_kwargs(**openai_kwargs: Unpack[OptionalCompletionCreateParamsBase]):
+def openai_kwargs(**openai_kwargs: Unpack[PartialChatCompletionParams]):
     """
     PARTIAL parameter list, i.e. model and messages are optional
     Only used for static type checking, the function will return the kwargs as is.

@@ -20,6 +20,8 @@ __all__ = [
     # API
     "ChatCompletion",
     "ChatCompletionMessage",
+    "ChatCompletionParams",
+    "PartialChatCompletionParams",
     "ToolCall",
     "ChatCompletionChunk",
     "openai_chat",
@@ -83,6 +85,8 @@ from .api import (
     ChatCompletion,
     ChatCompletionChunk,
     ChatCompletionMessage,
+    ChatCompletionParams,
+    PartialChatCompletionParams,
     Recordings,
     ToolCall,
     accumulate_partial,
