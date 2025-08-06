@@ -2,7 +2,16 @@
 Interactions with the OpenAI API and wrappers around the API.
 """
 
-from typing import Any, AsyncIterator, Callable, ParamSpec, TypeVar
+from typing import (
+    Any,
+    AsyncIterator,
+    Callable,
+    Iterable,
+    NotRequired,
+    ParamSpec,
+    TypeVar,
+    Unpack,
+)
 
 import litellm
 from openai import AsyncOpenAI, AsyncStream
@@ -12,11 +21,15 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message import (
     ChatCompletionMessage as ChatCompletionMessage,
 )
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall as ToolCall,
 )
 from openai.types.chat.chat_completion_message_tool_call import Function
-from openai.types.chat.completion_create_params import ResponseFormat
+from openai.types.chat.completion_create_params import (
+    CompletionCreateParamsBase,
+    ResponseFormat,
+)
 from pydantic import BaseModel
 
 P = ParamSpec("P")
@@ -100,18 +113,12 @@ litellm_chat = create_wrapped_openai(openai_func_for_typing=litellm.acompletion)
 def create_validate_openai(
     openai_func_for_typing: Callable[P, R] = dummy_client.chat.completions.create,
 ):
-    """
-    Due to python's typing limitations, to receive static type checking without re-declaring the entire OpenAI API,
-    we need to create a wrapper around the OpenAI API.
-    So the given parameter `openai_func_for_typing` is only used for type checking,
-    it won't actually be called.
-    """
-
     def validate_openai(
         *openai_args: P.args,
         **openai_kwargs: P.kwargs,
     ) -> dict[str, Any]:
         """
+        FULL parameter list, including the required model and messages parameters.
         Utility for static type checking, simply returns the kwargs, args are dropped because OpenAI doesn't use any positional arguments
         """
         return openai_kwargs
@@ -120,6 +127,22 @@ def create_validate_openai(
 
 
 openai_params = create_validate_openai()
+
+
+class OptionalCompletionCreateParamsBase(CompletionCreateParamsBase, total=False):
+    messages: NotRequired[Iterable[ChatCompletionMessageParam]]  # type: ignore
+    model: NotRequired[str]  # type: ignore
+    stream: bool  # since this is not declared in the base
+
+
+def openai_kwargs(**openai_kwargs: Unpack[OptionalCompletionCreateParamsBase]):
+    """
+    PARTIAL parameter list, i.e. model and messages are optional
+    Only used for static type checking, the function will return the kwargs as is.
+    """
+    return openai_kwargs
+
+
 # ========== #
 
 
