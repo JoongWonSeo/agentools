@@ -21,11 +21,18 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion_message import (
     ChatCompletionMessage as ChatCompletionMessage,
 )
+from openai.types.chat.chat_completion_message_custom_tool_call import (
+    ChatCompletionMessageCustomToolCall as CustomToolCall,
+)
+from openai.types.chat.chat_completion_message_custom_tool_call import Custom
+from openai.types.chat.chat_completion_message_function_tool_call import (
+    ChatCompletionMessageFunctionToolCall as FunctionToolCall,
+)
+from openai.types.chat.chat_completion_message_function_tool_call import Function
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from openai.types.chat.chat_completion_message_tool_call import (
-    ChatCompletionMessageToolCall as ToolCall,
+    ChatCompletionMessageToolCallUnion as ToolCall,  # noqa: F401
 )
-from openai.types.chat.chat_completion_message_tool_call import Function
 from openai.types.chat.completion_create_params import (
     CompletionCreateParamsBase,
     ResponseFormat,
@@ -87,7 +94,14 @@ def create_wrapped_openai(
             custom_llm_provider = custom_llm_provider or "openai"
 
         if client is None:
-            acompletion = litellm.acompletion
+            return litellm.acompletion(
+                *openai_args,  # type: ignore
+                response_format=response_format,
+                **openai_kwargs,
+                # litellm-specific params
+                mock_response=mock_response,
+                custom_llm_provider=custom_llm_provider,
+            )
             # FIXME: since the return value is slightly different, we need to convert it back (lossy)
             # wrap with ChatCompletion.model_validate(r.model_dump())
         elif isinstance(client, Callable):
@@ -98,8 +112,6 @@ def create_wrapped_openai(
             *openai_args,  # type: ignore
             response_format=response_format,
             **openai_kwargs,
-            mock_response=mock_response,
-            custom_llm_provider=custom_llm_provider,
         )
 
     return wrapped_openai_chat_completion_create
@@ -228,29 +240,33 @@ async def accumulate_partial(
                     for delta_tool_call in delta_message.tool_calls:
                         # ensure this tool_call exists in the message
                         if len(message.tool_calls) <= delta_tool_call.index:
-                            message.tool_calls.extend(
-                                [
-                                    ToolCall(
+                            if delta_tool_call.type == "function":
+                                message.tool_calls.append(
+                                    FunctionToolCall(
                                         id="",  # NOTE: no initial id
                                         type="function",
                                         function=Function(name="", arguments=""),
                                     )
-                                    for i in range(
-                                        len(message.tool_calls),
-                                        delta_tool_call.index + 1,
+                                )
+                            elif delta_tool_call.type == "custom":
+                                message.tool_calls.append(
+                                    CustomToolCall(
+                                        id="",  # NOTE: no initial id
+                                        type="custom",
+                                        custom=Custom(name="", input=""),
                                     )
-                                ]
-                            )
+                                )
 
                         tool_call = message.tool_calls[delta_tool_call.index]
 
                         # update the tool_call
                         tool_call.id = delta_tool_call.id or tool_call.id
-                        tool_call.type = delta_tool_call.type or tool_call.type
+                        tool_call.type = delta_tool_call.type or tool_call.type  # type: ignore
 
                         # update the function
                         delta_function = delta_tool_call.function
                         if delta_function:
+                            assert tool_call.type == "function"
                             # experimental testing shows that the function name is always fully returned, no matter how long
                             tool_call.function.name = (
                                 delta_function.name or tool_call.function.name
@@ -259,7 +275,23 @@ async def accumulate_partial(
                             if delta_function.arguments:
                                 tool_call.function.arguments += delta_function.arguments
 
+                        # update the custom tool (hasattr for litellm)
+                        delta_custom = (
+                            delta_tool_call.custom  # type: ignore
+                            if hasattr(delta_tool_call, "custom")
+                            else None
+                        )
+                        if delta_custom:
+                            assert tool_call.type == "custom"
+                            # TODO: once OpenAI fixes their typing, change back the dict notation to dot notation
+                            tool_call.custom.name = (
+                                delta_custom.get("name") or tool_call.custom.name
+                            )
+                            if input := delta_custom.get("input"):
+                                tool_call.custom.input += input
+
             if hasattr(chunk, "usage") and chunk.usage:
+                # hasattr for litellm compatibility
                 completion.usage = chunk.usage
 
             yield chunk, completion

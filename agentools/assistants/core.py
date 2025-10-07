@@ -1,15 +1,10 @@
-from typing import Any, Iterable
 from abc import ABC
 from dataclasses import dataclass
+from typing import Any, Iterable
 
-from ..api import (
-    ChatCompletion,
-    ChatCompletionMessage,
-    ToolCall,
-    ChatCompletionChunk,
-)
-from ..tools import Tools
+from ..api import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage, ToolCall
 from ..messages import Content, Message
+from ..tools import Tools
 
 
 class Assistant(ABC):

@@ -3,7 +3,7 @@ name = "agentools"
 version = "0.8.1"
 description = ""
 authors = [{ name = "Joong-Won Seo", email = "joong.won.seo@gmail.com" }]
-requires-python = "~=3.10"
+requires-python = ">=3.12"
 readme = "README.md"
 dependencies = [
     "pydantic~=2.5",
@@ -11,7 +11,7 @@ dependencies = [
     "jsonref~=1.1",
     "docstring-parser>=0.15,<0.16",
     "json-autocomplete>=0.2,<0.3",
-    "openai[realtime]>=1.61.0,<2",
+    "openai>=2.2.0,<3",
     "jsonschema~=4.20",
     "qdrant-client~=1.9",
     "typing-extensions>=4.12.2,<5",
@@ -19,7 +19,11 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["ipykernel>=6.29.4,<7"]
+dev = [
+    "ipykernel>=6.29.4,<7",
+    "pyright>=1.1.406",
+    "ruff>=0.13.3",
+]
 
 [tool.hatch.build.targets.sdist]
 include = ["agentools"]
@@ -30,3 +34,19 @@ include = ["agentools"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py312"
+
+
+[tool.pyright]
+typeCheckingMode = "standard"
+
+# let pyright know where the venv is
+venvPath = "."
+venv = ".venv"
+
+# # override rules
+# reportTypedDictNotRequiredAccess = "warning"
+# reportIncompatibleVariableOverride = "warning" # maybe reconsider the override pattern
+# reportPrivateImportUsage = "warning"  # better than importing from deep nested internal utils
