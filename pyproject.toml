@@ -1,28 +1,32 @@
-[tool.poetry]
+[project]
 name = "agentools"
 version = "0.8.1"
 description = ""
-authors = ["Joong-Won Seo <joong.won.seo@gmail.com>"]
+authors = [{ name = "Joong-Won Seo", email = "joong.won.seo@gmail.com" }]
+requires-python = "~=3.10"
 readme = "README.md"
-packages = [{ include = "agentools" }]
+dependencies = [
+    "pydantic~=2.5",
+    "tiktoken>=0.10.0,<0.11",
+    "jsonref~=1.1",
+    "docstring-parser>=0.15,<0.16",
+    "json-autocomplete>=0.2,<0.3",
+    "openai[realtime]>=1.61.0,<2",
+    "jsonschema~=4.20",
+    "qdrant-client~=1.9",
+    "typing-extensions>=4.12.2,<5",
+    "litellm>=1.74.7,<2",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-pydantic = "^2.5"
-tiktoken = "^0.10.0"
-jsonref = "^1.1"
-docstring-parser = "^0.15"
-json-autocomplete = "^0.2"
-openai = { extras = ["realtime"], version = "^1.61.0" }
-jsonschema = "^4.20"
-qdrant-client = "^1.9"
-typing-extensions = "^4.12.2"
-litellm = "^1.74.7"
+[dependency-groups]
+dev = ["ipykernel>=6.29.4,<7"]
 
+[tool.hatch.build.targets.sdist]
+include = ["agentools"]
 
-[tool.poetry.group.dev.dependencies]
-ipykernel = "^6.29.4"
+[tool.hatch.build.targets.wheel]
+include = ["agentools"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
