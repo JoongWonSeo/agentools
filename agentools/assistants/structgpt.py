@@ -1,16 +1,15 @@
-from dataclasses import dataclass
 import json
-from typing import Callable, AsyncIterator, Generic, Iterable, TypeVar, override, Type
+from dataclasses import dataclass
+from typing import AsyncIterator, Callable, Generic, Iterable, Type, TypeVar, override
 
-from pydantic import BaseModel
 from json_autocomplete import json_autocomplete
+from pydantic import BaseModel
 
-from ..tools import function_tool, FunctionTool
-from ..messages import MessageHistory, Message, Content
-from .core import Assistant
+from ..messages import Content, Message, MessageHistory
+from ..tools import FunctionTool, function_tool
 from .chatgpt import ChatGPT
+from .core import Assistant
 from .utils import format_event
-
 
 S = TypeVar("S", bound=BaseModel)
 _S_EVENT = TypeVar("_S_EVENT", bound=BaseModel)
@@ -39,11 +38,13 @@ class StructGPT(ChatGPT, Generic[S]):
         tool_name: str | None = None,
         on_preview: Callable | None = None,
         messages: MessageHistory | None = None,
+        strict: bool | None = None,  # TODO: maybe default to True
     ):
         @function_tool(
             name=tool_name or struct.__name__,
             require_doc=False,
             schema=struct,
+            strict=strict,
         )
         async def create(**kwargs) -> S:
             return struct(**kwargs)
