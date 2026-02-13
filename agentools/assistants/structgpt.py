@@ -38,7 +38,7 @@ class StructGPT(ChatGPT, Generic[S]):
         tool_name: str | None = None,
         on_preview: Callable | None = None,
         messages: MessageHistory | None = None,
-        strict: bool | None = None,  # TODO: maybe default to True
+        strict: bool | None = True,
     ):
         @function_tool(
             name=tool_name or struct.__name__,
